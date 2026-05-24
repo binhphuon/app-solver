@@ -259,6 +259,10 @@ object WindowLayoutManager {
         val dm = DisplayMetrics()
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(dm)
-        return Pair(dm.widthPixels, dm.heightPixels)
+        // Luôn trả về landscape: chiều dài > chiều rộng
+        val screenW = maxOf(dm.widthPixels, dm.heightPixels)
+        val screenH = minOf(dm.widthPixels, dm.heightPixels)
+        DebugLogger.d(TAG, "getScreenSize raw=${dm.widthPixels}x${dm.heightPixels} → landscape=${screenW}x${screenH}")
+        return Pair(screenW, screenH)
     }
 }

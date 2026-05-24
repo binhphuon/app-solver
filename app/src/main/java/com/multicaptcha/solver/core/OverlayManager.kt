@@ -12,6 +12,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.multicaptcha.solver.solver.SlotConfig
 import com.multicaptcha.solver.solver.SlotState
 
 /**
@@ -27,6 +28,8 @@ object OverlayManager {
     private var tvHeader: TextView?            = null
     private var tvLoop: TextView?              = null
     private val slotViews = mutableListOf<SlotStatusView>()
+
+    private var debugView: DebugOverlayView? = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isShowing   = false
@@ -51,15 +54,16 @@ object OverlayManager {
         mainHandler.post {
             buildOverlayView(context, slotCount)
             showOverlay()
+            showDebugOverlay(context)
         }
     }
 
     fun destroy() {
         mainHandler.post {
-            try {
-                rootView?.let { windowManager?.removeView(it) }
-            } catch (_: Exception) {}
-            rootView = null
+            try { rootView?.let { windowManager?.removeView(it) } } catch (_: Exception) {}
+            try { debugView?.let { windowManager?.removeView(it) } } catch (_: Exception) {}
+            rootView  = null
+            debugView = null
             isShowing = false
         }
     }
@@ -88,6 +92,22 @@ object OverlayManager {
         mainHandler.post {
             slotViews[index].setStep(step)
         }
+    }
+
+    /**
+     * Truyền danh sách slot để debug overlay vẽ đúng vị trí
+     * Gọi sau khi buildSlots() trong SolverService
+     */
+    fun setSlots(slots: List<SlotConfig>) {
+        mainHandler.post { debugView?.setSlots(slots) }
+    }
+
+    /**
+     * Flash vòng tròn vàng tại vị trí tap tuyệt đối (pixel màn hình)
+     * Gọi từ TouchInjector sau mỗi lần tap
+     */
+    fun showTapFlash(x: Int, y: Int) {
+        mainHandler.post { debugView?.addTapMark(x, y) }
     }
 
     // ── Build overlay view ───────────────────────────────────────
@@ -140,6 +160,28 @@ object OverlayManager {
             DebugLogger.i(TAG, "Overlay shown")
         } catch (e: Exception) {
             DebugLogger.e(TAG, "Failed to show overlay", e)
+        }
+    }
+
+    private fun showDebugOverlay(context: Context) {
+        if (windowManager == null) return
+        val dv = DebugOverlayView(context)
+        debugView = dv
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        try {
+            windowManager?.addView(dv, params)
+            DebugLogger.i(TAG, "Debug overlay shown")
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "Failed to add debug overlay", e)
         }
     }
 

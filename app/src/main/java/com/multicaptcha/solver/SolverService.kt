@@ -103,14 +103,18 @@ class SolverService : Service() {
         val dm = DisplayMetrics()
         @Suppress("DEPRECATION")
         wm.defaultDisplay.getRealMetrics(dm)
-        val screenW = dm.widthPixels
-        val screenH = dm.heightPixels
+        // Luôn dùng landscape: chiều dài = screenW, chiều ngắn = screenH
+        val screenW = maxOf(dm.widthPixels, dm.heightPixels)
+        val screenH = minOf(dm.widthPixels, dm.heightPixels)
 
-        DebugLogger.i(TAG, "Screen: ${screenW}x${screenH} px | density=${dm.density}")
+        DebugLogger.i(TAG, "Screen raw=${dm.widthPixels}x${dm.heightPixels} → landscape=${screenW}x${screenH} density=${dm.density}")
 
         val slots     = SlotManager.buildSlots(screenW, screenH, packages)
         val apiClient = OmoApiClient(apiKey)
         val solvers   = slots.map { FuncaptchaSolver(it, apiClient) }
+
+        // Truyền slot info cho debug overlay để vẽ zone lên màn hình
+        OverlayManager.setSlots(slots)
 
         // Log slot config
         slots.forEach { s ->
