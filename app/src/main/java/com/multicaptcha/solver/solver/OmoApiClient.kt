@@ -33,12 +33,19 @@ class OmoApiClient(private val apiKey: String) {
     suspend fun createTask(imageBase64: String, question: String = "", slotIdx: Int = -1): String? {
         DebugLogger.apiCreateTask(slotIdx, imageBase64.length * 3 / 4)
 
+        val otherText = question.ifEmpty { com.multicaptcha.solver.SolverConfig.captchaOther }
+        DebugLogger.d(TAG, "createTask other=\"$otherText\"")
+
+        if (otherText.isBlank()) {
+            DebugLogger.e(TAG, "slot=$slotIdx — 'other' field is empty! Set captcha question in UI before starting.")
+        }
+
         val body = JSONObject().apply {
             put("clientKey", apiKey)
             put("task", JSONObject().apply {
                 put("type", "FuncaptchaImageTask")
                 put("imageBase64", imageBase64)
-                if (question.isNotEmpty()) put("other", question)
+                put("other", otherText)          // required field — luôn gửi
             })
         }.toString()
 

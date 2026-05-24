@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">MultiCaptcha Solver</string>
+    <string name="accessibility_desc">Đọc nội dung FunCaptcha để tự động giải</string>
 </resources>

@@ -1,9 +1,11 @@
 package com.multicaptcha.solver.solver
 
 import android.graphics.Bitmap
+import com.multicaptcha.solver.SolverConfig
 import com.multicaptcha.solver.core.DebugLogger
 import com.multicaptcha.solver.core.OverlayManager
 import com.multicaptcha.solver.core.ScreenCapture
+import com.multicaptcha.solver.core.SolverAccessibilityService
 import com.multicaptcha.solver.core.TouchInjector
 import kotlinx.coroutines.delay
 
@@ -110,7 +112,21 @@ class FuncaptchaSolver(
             carouselPos = 1
         }
 
-        // ── 1. Crop reference image từ screenshot hiện tại ──────
+        // ── 1. Đọc question text + total options qua Accessibility ─
+        val questionText = SolverAccessibilityService.getQuestionText(slot.packageName)
+            ?: SolverConfig.captchaOther.ifBlank { null }
+        if (questionText.isNullOrBlank()) {
+            DebugLogger.w(TAG, "No question text — API 'other' will be empty")
+        } else {
+            DebugLogger.i(TAG, "Question: \"$questionText\"")
+        }
+
+        val accessibilityTotal = SolverAccessibilityService.getTotalOptions(slot.packageName)
+        if (accessibilityTotal != null) {
+            DebugLogger.i(TAG, "Accessibility counter: total=$accessibilityTotal options")
+        }
+
+        // ── Crop reference image từ screenshot hiện tại ──────────
         val slotBmpFirst = ScreenCapture.cropSlot(fullScreenshot, slot)
         val refBmp       = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
         DebugLogger.d(TAG, "Reference rect=${slot.matchThisImageRect}")
@@ -123,9 +139,10 @@ class FuncaptchaSolver(
         optionBitmaps.add(firstOption)
         DebugLogger.d(TAG, "Captured option 1 (from existing screenshot)")
 
-        // Options 2..MAX: scroll → chụp → kiểm tra duplicate với option 1
-        // Khi ảnh mới ≈ ảnh đầu tiên → carousel đã quay vòng → dừng
-        for (i in 2..MAX_OPTIONS) {
+        // Options 2..N: scroll → chụp → dừng khi biết đủ options
+        // Nếu accessibility đọc được total → dùng exact count, không cần detect duplicate
+        val captureLimit = accessibilityTotal ?: MAX_OPTIONS
+        for (i in 2..captureLimit) {
             OverlayManager.updateSlotStep(slot.index, "Chụp option $i...")
             TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ capture $i")
             carouselPos = i
@@ -172,7 +189,7 @@ class FuncaptchaSolver(
         // ── 4. Gửi API ──────────────────────────────────────────
         OverlayManager.updateSlot(slot.index, SlotState.VERIFYING, "Gửi API...")
         DebugLogger.d(TAG, "Sending combined image to omocaptcha API...")
-        val taskId = apiClient.createTask(imageB64, slotIdx = slot.index) ?: run {
+        val taskId = apiClient.createTask(imageB64, question = questionText ?: "", slotIdx = slot.index) ?: run {
             DebugLogger.apiError(slot.index, "createTask returned null")
             OverlayManager.updateSlotStep(slot.index, "Lỗi: createTask thất bại")
             currentState = SlotState.PUZZLE_ACTIVE

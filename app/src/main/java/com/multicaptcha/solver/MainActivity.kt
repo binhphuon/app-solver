@@ -35,8 +35,23 @@ class MainActivity : AppCompatActivity() {
         binding.etApiKey.setText(prefs.getString(KEY_API, ""))
         binding.etCaptchaOther.setText(SolverConfig.captchaOther)
 
-        // Check root
-        binding.tvStatus.text = if (RootShell.hasRoot()) "✅ Root OK" else "⚠️ Chưa root!"
+        // Check root + grant accessibility
+        if (RootShell.hasRoot()) {
+            binding.tvStatus.text = "✅ Root OK"
+            thread {
+                RootShell.grantAccessibilityService(packageName)
+                Thread.sleep(1500)   // chờ service bind
+                runOnUiThread {
+                    if (com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) {
+                        binding.tvStatus.text = "✅ Root + Accessibility OK"
+                    } else {
+                        binding.tvStatus.text = "✅ Root OK (Accessibility đang khởi động...)"
+                    }
+                }
+            }
+        } else {
+            binding.tvStatus.text = "⚠️ Chưa root!"
+        }
 
         // ── Start ────────────────────────────────────────────────
         binding.btnStart.setOnClickListener {

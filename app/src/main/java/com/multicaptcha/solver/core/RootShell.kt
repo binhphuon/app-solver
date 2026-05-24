@@ -41,4 +41,23 @@ object RootShell {
         val result = exec("id")
         return result.contains("uid=0")
     }
+
+    /**
+     * Grant Accessibility Service cho app qua root.
+     * Không cần user vào Settings → Accessibility.
+     */
+    fun grantAccessibilityService(packageName: String) {
+        val componentName = "$packageName/.core.SolverAccessibilityService"
+        // Đọc danh sách service đang enabled
+        val current = exec("settings get secure enabled_accessibility_services").trim()
+        if (current.contains(componentName)) {
+            Log.i(TAG, "Accessibility already granted: $componentName")
+            return
+        }
+        val newList = if (current.isEmpty() || current == "null") componentName
+                      else "$current:$componentName"
+        exec("settings put secure enabled_accessibility_services $newList")
+        exec("settings put secure accessibility_enabled 1")
+        Log.i(TAG, "Accessibility granted: $componentName")
+    }
 }
