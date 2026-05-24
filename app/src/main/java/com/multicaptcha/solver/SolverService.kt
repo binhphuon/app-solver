@@ -130,8 +130,16 @@ class SolverService : Service() {
         updateNotification("Running — ${packages.size} slots")
         OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
 
-        var loopCount   = 0
-        var solvedTotal = 0
+        // Dismiss popup khởi động (App Cloner "old version" warning, v.v.)
+        DebugLogger.sep("DISMISS STARTUP DIALOGS")
+        OverlayManager.updateHeader("⏳ Dismiss dialogs...")
+        delay(1200)
+        dismissAnyDialog(screenW, screenH)
+        delay(1000)
+
+        var loopCount      = 0
+        var solvedTotal    = 0
+        var allIdleStreak  = 0   // đếm loop liên tiếp tất cả slot đều IDLE
 
         while (currentCoroutineContext().isActive) {
             val loopStart = System.currentTimeMillis()
@@ -198,6 +206,20 @@ class SolverService : Service() {
                 DebugLogger.loopTick(loopCount, activeCount, solvers.size, elapsed)
                 OverlayManager.updateLoop(loopCount, solvedTotal, activeCount, solvers.size)
 
+                // Nếu tất cả slot đều IDLE quá lâu → có thể đang bị popup che
+                if (activeCount == 0) {
+                    allIdleStreak++
+                    if (allIdleStreak % IDLE_DISMISS_EVERY == 0) {
+                        DebugLogger.w(TAG, "All IDLE for $allIdleStreak loops — attempting dialog dismiss")
+                        OverlayManager.updateHeader("⚠ All IDLE — dismiss dialog...")
+                        dismissAnyDialog(screenW, screenH)
+                        delay(800)
+                        OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
+                    }
+                } else {
+                    allIdleStreak = 0
+                }
+
                 delay(POLL_INTERVAL_MS)
 
             } catch (e: CancellationException) {
@@ -231,6 +253,35 @@ class SolverService : Service() {
             .notify(NOTIF_ID, buildNotification(text))
     }
 
+    // ── Dismiss popup / dialog ────────────────────────────────────
+
+    /**
+     * Dismiss bất kỳ popup/dialog nào đang che màn hình bằng cách:
+     * 1. Tap vào góc ngoài cùng của màn hình (ngoài bất kỳ dialog nào centered)
+     * 2. Gửi BACK key (đóng dialog cancelable)
+     *
+     * Dialog "This app was built for older Android" của App Cloner
+     * thường nằm ở trung tâm màn hình, nên tap góc (30, 50) sẽ dismiss nó.
+     */
+    private suspend fun dismissAnyDialog(screenW: Int, screenH: Int) {
+        DebugLogger.d(TAG, "dismissAnyDialog: tap corners + BACK")
+
+        // Tap góc màn hình — nằm ngoài bất kỳ dialog centered nào
+        val corners = listOf(
+            30 to 50,               // top-left
+            screenW - 30 to 50,    // top-right
+            30 to screenH - 50     // bottom-left
+        )
+        for ((x, y) in corners) {
+            RootShell.execSilent("input tap $x $y")
+            delay(220)
+        }
+
+        // BACK key — đóng dialog cancelable
+        RootShell.execSilent("input keyevent 4")
+        DebugLogger.d(TAG, "dismissAnyDialog: done")
+    }
+
     // ── Constants ─────────────────────────────────────────────────
 
     companion object {
@@ -238,6 +289,7 @@ class SolverService : Service() {
         const val ACTION_STOP    = "com.multicaptcha.STOP"
         const val EXTRA_API_KEY  = "api_key"
         const val EXTRA_PACKAGES = "packages"
-        private const val POLL_INTERVAL_MS = 1500L
+        private const val POLL_INTERVAL_MS    = 1500L
+        private const val IDLE_DISMISS_EVERY  = 12   // dismiss sau 12 loop IDLE (~18s)
     }
 }

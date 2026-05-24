@@ -29,35 +29,38 @@ class FuncaptchaSolver(
     fun detectState(slotBitmap: Bitmap): SlotState {
         DebugLogger.sep("Slot[${slot.index}] detect — ${slotBitmap.width}x${slotBitmap.height}")
 
-        // 1. Check nút Start Puzzle (green vùng giữa)
+        // 1. Check nút Start Puzzle (green vùng giữa-dưới)
         val startRect  = slot.startButtonRect
         val startGreen = ScreenCapture.greenRatio(slotBitmap, startRect)
         val startHit   = startGreen > GREEN_THRESHOLD
-        DebugLogger.greenDetect(slot.index, "startBtn", startGreen, GREEN_THRESHOLD, startHit)
+        DebugLogger.greenDetect(slot.index, "startBtn[${startRect.left},${startRect.top}-${startRect.right},${startRect.bottom}]",
+            startGreen, GREEN_THRESHOLD, startHit)
 
         if (startHit) {
             DebugLogger.slotState(slot.index, "START_VISIBLE")
             return SlotState.START_VISIBLE
         }
 
-        // 2. Check nút Submit (green vùng dưới) → puzzle đang active
+        // 2. Check nút Submit (green vùng dưới) → puzzle đang active và sẵn sàng submit
         val submitRect  = slot.submitButtonRect
         val submitGreen = ScreenCapture.greenRatio(slotBitmap, submitRect)
         val submitHit   = submitGreen > GREEN_THRESHOLD
-        DebugLogger.greenDetect(slot.index, "submitBtn", submitGreen, GREEN_THRESHOLD, submitHit)
+        DebugLogger.greenDetect(slot.index, "submitBtn[${submitRect.left},${submitRect.top}-${submitRect.right},${submitRect.bottom}]",
+            submitGreen, GREEN_THRESHOLD, submitHit)
 
         if (submitHit) {
-            DebugLogger.slotState(slot.index, "PUZZLE_ACTIVE")
+            DebugLogger.slotState(slot.index, "PUZZLE_ACTIVE(submit-green)")
             return SlotState.PUZZLE_ACTIVE
         }
 
-        // 3. Kiểm tra có nội dung gì không (phân biệt app mở vs. idle)
+        // 3. Kiểm tra có nội dung (ảnh puzzle) — fallback khi Submit chưa green
         val challengeArea = ScreenCapture.cropRegion(slotBitmap, slot.challengeImageRect)
         val hasContent    = ScreenCapture.hasSignificantContent(challengeArea)
-        DebugLogger.d(TAG, "hasContent=$hasContent")
+        DebugLogger.d(TAG, "hasContent=$hasContent (challengeRect=[${slot.challengeImageRect.left},${slot.challengeImageRect.top}-${slot.challengeImageRect.right},${slot.challengeImageRect.bottom}])")
 
-        val state = if (hasContent) SlotState.IDLE else SlotState.IDLE
-        DebugLogger.slotState(slot.index, state.name)
+        // hasContent=true → puzzle đang hiện (ảnh, mũi tên, v.v.) dù Submit chưa xanh
+        val state = if (hasContent) SlotState.PUZZLE_ACTIVE else SlotState.IDLE
+        DebugLogger.slotState(slot.index, "${state.name}(hasContent=$hasContent)")
         return state
     }
 
