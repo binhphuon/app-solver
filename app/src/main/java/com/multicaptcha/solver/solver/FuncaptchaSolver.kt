@@ -24,6 +24,9 @@ class FuncaptchaSolver(
     var currentState: SlotState = SlotState.IDLE
         private set
 
+    // true sau khi handleStart() được gọi — ngăn solvePuzzle() chạy khi window chưa mở
+    private var hasSeenStart: Boolean = false
+
     // ── Detect state ─────────────────────────────────────────────
 
     fun detectState(slotBitmap: Bitmap): SlotState {
@@ -53,14 +56,18 @@ class FuncaptchaSolver(
             return SlotState.PUZZLE_ACTIVE
         }
 
-        // 3. Kiểm tra có nội dung (ảnh puzzle) — fallback khi Submit chưa green
+        // 3. hasContent fallback — chỉ dùng sau khi đã từng thấy START_VISIBLE
+        //    (tránh call API khi window vừa mở, chưa phải captcha)
         val challengeArea = ScreenCapture.cropRegion(slotBitmap, slot.challengeImageRect)
         val hasContent    = ScreenCapture.hasSignificantContent(challengeArea)
-        DebugLogger.d(TAG, "hasContent=$hasContent (challengeRect=[${slot.challengeImageRect.left},${slot.challengeImageRect.top}-${slot.challengeImageRect.right},${slot.challengeImageRect.bottom}])")
+        DebugLogger.d(TAG, "hasContent=$hasContent hasSeenStart=$hasSeenStart " +
+            "(challengeRect=[${slot.challengeImageRect.left},${slot.challengeImageRect.top}-${slot.challengeImageRect.right},${slot.challengeImageRect.bottom}])")
 
-        // hasContent=true → puzzle đang hiện (ảnh, mũi tên, v.v.) dù Submit chưa xanh
-        val state = if (hasContent) SlotState.PUZZLE_ACTIVE else SlotState.IDLE
-        DebugLogger.slotState(slot.index, "${state.name}(hasContent=$hasContent)")
+        val state = when {
+            hasContent && hasSeenStart -> SlotState.PUZZLE_ACTIVE
+            else                       -> SlotState.IDLE
+        }
+        DebugLogger.slotState(slot.index, "${state.name}(hasContent=$hasContent,hasSeenStart=$hasSeenStart)")
         return state
     }
 
@@ -72,6 +79,7 @@ class FuncaptchaSolver(
         OverlayManager.updateSlotStep(slot.index, "Tap Start Puzzle...")
 
         TouchInjector.tapInSlot(slot, slot.startButtonRelX, slot.startButtonRelY, "Start Puzzle")
+        hasSeenStart = true
         currentState = SlotState.PUZZLE_ACTIVE
 
         OverlayManager.updateSlotStep(slot.index, "Chờ puzzle load...")
@@ -155,6 +163,7 @@ class FuncaptchaSolver(
     fun resetState() {
         DebugLogger.d(TAG, "resetState SOLVED→IDLE")
         currentState = SlotState.IDLE
+        hasSeenStart = false
     }
 
     companion object {

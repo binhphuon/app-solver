@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SolverConfig.init(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -125,5 +126,67 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // ── Calibration ──────────────────────────────────────────
+        loadCalibrationToUI()
+
+        binding.btnSaveCalib.setOnClickListener {
+            saveCalibrationFromUI()
+            Toast.makeText(this, "✅ Đã lưu calibration", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnResetCalib.setOnClickListener {
+            SolverConfig.resetDefaults()
+            loadCalibrationToUI()
+            Toast.makeText(this, "🔁 Reset về mặc định", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.btnTestTap.setOnClickListener {
+            binding.btnTestTap.isEnabled = false
+            thread {
+                val (screenW, screenH) = WindowLayoutManager.getScreenSize(this)
+                val slotWidth = screenW / TARGET_PACKAGES.size
+                val slot = com.multicaptcha.solver.solver.SlotConfig(0, 0, slotWidth, screenH, TARGET_PACKAGES[0])
+
+                // Tap Start position (green)
+                com.multicaptcha.solver.core.TouchInjector.tapInSlot(slot, slot.startButtonRelX, slot.startButtonRelY, "TEST: Start")
+                Thread.sleep(800)
+                // Tap Arrow position (orange)
+                com.multicaptcha.solver.core.TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "TEST: Arrow→")
+                Thread.sleep(800)
+                // Tap Submit position (blue)
+                com.multicaptcha.solver.core.TouchInjector.tapInSlot(slot, slot.submitRelX, slot.submitRelY, "TEST: Submit")
+
+                runOnUiThread { binding.btnTestTap.isEnabled = true }
+            }
+        }
+    }
+
+    private fun loadCalibrationToUI() {
+        binding.etStartDetTop.setText(SolverConfig.startDetectTop.toString())
+        binding.etStartDetBot.setText(SolverConfig.startDetectBot.toString())
+        binding.etStartTapY.setText(SolverConfig.startTapY.toString())
+        binding.etArrowTapX.setText(SolverConfig.arrowTapX.toString())
+        binding.etArrowTapY.setText(SolverConfig.arrowTapY.toString())
+        binding.etSubDetTop.setText(SolverConfig.submitDetectTop.toString())
+        binding.etSubDetBot.setText(SolverConfig.submitDetectBot.toString())
+        binding.etSubTapY.setText(SolverConfig.submitTapY.toString())
+        binding.etMatchTop.setText(SolverConfig.matchCropTop.toString())
+        binding.etMatchBot.setText(SolverConfig.matchCropBot.toString())
+    }
+
+    private fun saveCalibrationFromUI() {
+        fun et(et: android.widget.EditText, default: Int) =
+            et.text.toString().toIntOrNull()?.coerceIn(0, 100) ?: default
+        SolverConfig.startDetectTop = et(binding.etStartDetTop, 52)
+        SolverConfig.startDetectBot = et(binding.etStartDetBot, 82)
+        SolverConfig.startTapY      = et(binding.etStartTapY,   70)
+        SolverConfig.arrowTapX      = et(binding.etArrowTapX,   68)
+        SolverConfig.arrowTapY      = et(binding.etArrowTapY,   73)
+        SolverConfig.submitDetectTop= et(binding.etSubDetTop,   75)
+        SolverConfig.submitDetectBot= et(binding.etSubDetBot,   92)
+        SolverConfig.submitTapY     = et(binding.etSubTapY,     80)
+        SolverConfig.matchCropTop   = et(binding.etMatchTop,    38)
+        SolverConfig.matchCropBot   = et(binding.etMatchBot,    68)
     }
 }

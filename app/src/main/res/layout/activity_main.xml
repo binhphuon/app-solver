@@ -1,121 +1,188 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center_horizontal">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="MultiCaptcha Solver"
-        android:textSize="22sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="32dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="OMOcaptcha API Key"
-        android:textSize="14sp"
-        android:layout_marginBottom="8dp"/>
-
-    <EditText
-        android:id="@+id/etApiKey"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="PKG_..."
-        android:inputType="text"
-        android:singleLine="true"
-        android:layout_marginBottom="24dp"/>
+        android:orientation="vertical"
+        android:padding="20dp">
 
-    <TextView
-        android:id="@+id/tvStatus"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Chưa khởi động"
-        android:textSize="14sp"
-        android:layout_marginBottom="32dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MultiCaptcha Solver"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
 
-    <Button
-        android:id="@+id/btnStart"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="▶ Bắt đầu giải captcha"
-        android:layout_marginBottom="12dp"/>
+        <EditText
+            android:id="@+id/etApiKey"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="OMOcaptcha API Key (PKG_...)"
+            android:inputType="text"
+            android:singleLine="true"
+            android:layout_marginBottom="12dp"/>
 
-    <Button
-        android:id="@+id/btnStop"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="■ Dừng"
-        android:backgroundTint="#F44336"/>
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chưa khởi động"
+            android:layout_marginBottom="12dp"/>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#DDDDDD"
-        android:layout_marginTop="20dp"
-        android:layout_marginBottom="12dp"/>
+        <Button
+            android:id="@+id/btnStart"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="▶ Bắt đầu giải captcha"
+            android:layout_marginBottom="8dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Sắp xếp windows"
-        android:textSize="13sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="8dp"/>
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="■ Dừng"
+            android:backgroundTint="#F44336"
+            android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/btnLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="⊞ Xếp 3 windows (landscape)"
-        android:backgroundTint="#1565C0"/>
+        <!-- Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#DDDDDD" android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>
 
-    <Button
-        android:id="@+id/btnReadPos"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🔍 Đọc vị trí hiện tại"
-        android:backgroundTint="#37474F"
-        android:layout_marginTop="6dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Sắp xếp windows" android:textStyle="bold" android:layout_marginBottom="6dp"/>
 
-    <TextView
-        android:id="@+id/tvPosInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="11sp"
-        android:textColor="#37474F"
-        android:fontFamily="monospace"
-        android:layout_marginTop="6dp"
-        android:padding="8dp"
-        android:background="#F5F5F5"/>
+        <Button android:id="@+id/btnLayout" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="⊞ Xếp 3 windows (landscape)"
+            android:backgroundTint="#1565C0"/>
 
-    <Button
-        android:id="@+id/btnClearLog"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🗑 Xóa log file"
-        android:backgroundTint="#9E9E9E"
-        android:layout_marginTop="12dp"/>
+        <Button android:id="@+id/btnReadPos" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="🔍 Đọc vị trí hiện tại"
+            android:backgroundTint="#37474F" android:layout_marginTop="6dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Log: /storage/emulated/0/Download/solver_debug.txt"
-        android:textSize="11sp"
-        android:textColor="#888888"
-        android:layout_marginTop="8dp"/>
+        <TextView android:id="@+id/tvPosInfo" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textSize="11sp"
+            android:fontFamily="monospace" android:layout_marginTop="6dp"
+            android:padding="8dp" android:background="#F5F5F5"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Slots (trái → phải):\n  Slot 0: a.baba\n  Slot 1: a.dcdc\n  Slot 2: a.fefe"
-        android:textSize="12sp"
-        android:textColor="#888888"
-        android:layout_marginTop="16dp"/>
+        <Button android:id="@+id/btnClearLog" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="🗑 Xóa log file"
+            android:backgroundTint="#9E9E9E" android:layout_marginTop="8dp"/>
 
-</LinearLayout>
+        <!-- Calibration Divider -->
+        <View android:layout_width="match_parent" android:layout_height="1dp"
+            android:background="#1565C0" android:layout_marginTop="16dp" android:layout_marginBottom="8dp"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="📐 Calibration (% chiều cao slot)"
+            android:textStyle="bold" android:textColor="#1565C0" android:layout_marginBottom="4dp"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Nhập % vị trí, nhấn 💾 Lưu. Nhấn 📍 Test để xem tap flash."
+            android:textSize="11sp" android:textColor="#666666" android:layout_marginBottom="10dp"/>
+
+        <!-- Row: startBtn detect -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟩 startBtn detect:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etStartDetTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="52" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etStartDetBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="82" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  tap Y:" android:textSize="12sp"/>
+            <EditText android:id="@+id/etStartTapY" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="70" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: Arrow tap -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟡 arrow → tap:"
+                android:textSize="12sp"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="X:" android:textSize="12sp"/>
+            <EditText android:id="@+id/etArrowTapX" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="68" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  Y:" android:textSize="12sp"/>
+            <EditText android:id="@+id/etArrowTapY" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="73" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: submitBtn detect + tap -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟦 submitBtn detect:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etSubDetTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="75" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etSubDetBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="92" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  tap Y:" android:textSize="12sp"/>
+            <EditText android:id="@+id/etSubTapY" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="80" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: matchThis crop -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="12dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟧 matchThis crop Y:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etMatchTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="38" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etMatchBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="68" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Calib buttons -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <Button android:id="@+id/btnSaveCalib" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="💾 Lưu" android:backgroundTint="#2E7D32"
+                android:layout_marginEnd="6dp"/>
+            <Button android:id="@+id/btnResetCalib" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="🔁 Reset" android:backgroundTint="#E65100"
+                android:layout_marginEnd="6dp"/>
+            <Button android:id="@+id/btnTestTap" android:layout_width="0dp"
+                android:layout_height="wrap_content" android:layout_weight="1"
+                android:text="📍 Test tap" android:backgroundTint="#6A1B9A"/>
+        </LinearLayout>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Log: /storage/emulated/0/Download/solver_debug.txt"
+            android:textSize="10sp" android:textColor="#888888" android:layout_marginTop="12dp"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Slots: Slot0=a.baba  Slot1=a.dcdc  Slot2=a.fefe"
+            android:textSize="10sp" android:textColor="#888888" android:layout_marginTop="4dp"/>
+
+    </LinearLayout>
+</ScrollView>

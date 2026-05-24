@@ -130,12 +130,19 @@ class SolverService : Service() {
         updateNotification("Running — ${packages.size} slots")
         OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
 
-        // Dismiss popup khởi động (App Cloner "old version" warning, v.v.)
-        DebugLogger.sep("DISMISS STARTUP DIALOGS")
-        OverlayManager.updateHeader("⏳ Dismiss dialogs...")
-        delay(1200)
-        dismissAnyDialog(screenW, screenH)
-        delay(1000)
+        // Dismiss popup khởi động nếu có (App Cloner "old version" warning, v.v.)
+        DebugLogger.sep("CHECK STARTUP DIALOGS")
+        OverlayManager.updateHeader("⏳ Kiểm tra dialogs...")
+        delay(1500)
+        val startupShot = ScreenCapture.capture()
+        if (startupShot != null && ScreenCapture.isCenterDialogVisible(startupShot)) {
+            DebugLogger.i(TAG, "Startup dialog detected — dismissing")
+            OverlayManager.updateHeader("⏳ Dismiss dialogs...")
+            dismissAnyDialog(screenW, screenH)
+            delay(1000)
+        } else {
+            DebugLogger.d(TAG, "No startup dialog detected — skip dismiss")
+        }
 
         var loopCount      = 0
         var solvedTotal    = 0
@@ -210,10 +217,16 @@ class SolverService : Service() {
                 if (activeCount == 0) {
                     allIdleStreak++
                     if (allIdleStreak % IDLE_DISMISS_EVERY == 0) {
-                        DebugLogger.w(TAG, "All IDLE for $allIdleStreak loops — attempting dialog dismiss")
-                        OverlayManager.updateHeader("⚠ All IDLE — dismiss dialog...")
-                        dismissAnyDialog(screenW, screenH)
-                        delay(800)
+                        DebugLogger.w(TAG, "All IDLE for $allIdleStreak loops — checking for dialog")
+                        val idleShot = ScreenCapture.capture()
+                        if (idleShot != null && ScreenCapture.isCenterDialogVisible(idleShot)) {
+                            DebugLogger.w(TAG, "Dialog detected — dismissing")
+                            OverlayManager.updateHeader("⚠ Dialog found — dismissing...")
+                            dismissAnyDialog(screenW, screenH)
+                            delay(800)
+                        } else {
+                            DebugLogger.d(TAG, "No dialog found despite all-IDLE streak")
+                        }
                         OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
                     }
                 } else {

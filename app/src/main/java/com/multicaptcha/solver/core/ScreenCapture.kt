@@ -137,4 +137,38 @@ object ScreenCapture {
         val mean = v.average()
         return v.map { (it - mean) * (it - mean) }.average().toFloat()
     }
+
+    /**
+     * Kiểm tra có popup/dialog che màn hình không.
+     * Dialog thường có nền trắng tập trung ở giữa màn hình.
+     * @return true nếu vùng trung tâm màn hình có nền trắng đồng nhất
+     */
+    fun isCenterDialogVisible(bitmap: Bitmap): Boolean {
+        // Lấy vùng trung tâm 40%×30% của bitmap
+        val l = (bitmap.width  * 0.30f).toInt()
+        val t = (bitmap.height * 0.33f).toInt()
+        val r = (bitmap.width  * 0.70f).toInt()
+        val b = (bitmap.height * 0.60f).toInt()
+        if (l >= r || t >= b) return false
+
+        val region = try { cropRegion(bitmap, android.graphics.Rect(l, t, r, b)) }
+                     catch (_: Exception) { return false }
+
+        var brightPx = 0
+        var total    = 0
+        val step = 4
+        for (y in 0 until region.height step step) {
+            for (x in 0 until region.width step step) {
+                val px = region.getPixel(x, y)
+                val r  = android.graphics.Color.red(px)
+                val g  = android.graphics.Color.green(px)
+                val b  = android.graphics.Color.blue(px)
+                if (r > 210 && g > 210 && b > 210) brightPx++
+                total++
+            }
+        }
+        val ratio = if (total > 0) brightPx.toFloat() / total else 0f
+        android.util.Log.d("ScreenCapture", "isCenterDialogVisible: brightRatio=${"%.2f".format(ratio)}")
+        return ratio > 0.80f   // >80% pixel trắng → có dialog
+    }
 }
