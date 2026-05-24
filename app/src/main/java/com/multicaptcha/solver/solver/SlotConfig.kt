@@ -37,12 +37,12 @@ data class SlotConfig(
     //  │         [ Submit ]               │ 78-88%
     //  └──────────────────────────────────┘
 
-    /** Ảnh tham chiếu "Match This!" — nửa trái, gửi lên API */
+    /** Ảnh tham chiếu "Match This!" — gửi lên API (X và Y đều chỉnh được) */
     val matchThisImageRect: Rect get() = Rect(
-        (width  * 0.02f).toInt(),
-        (height * SolverConfig.matchCropTop / 100f).toInt(),
-        (width  * 0.50f).toInt(),
-        (height * SolverConfig.matchCropBot / 100f).toInt()
+        (width  * SolverConfig.matchCropLeft  / 100f).toInt(),
+        (height * SolverConfig.matchCropTop   / 100f).toInt(),
+        (width  * SolverConfig.matchCropRight / 100f).toInt(),
+        (height * SolverConfig.matchCropBot   / 100f).toInt()
     )
 
     /** Toàn bộ vùng challenge (cả 2 ảnh) — để check hasContent */

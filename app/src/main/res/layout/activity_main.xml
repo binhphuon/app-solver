@@ -92,17 +92,17 @@
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etStartDetTop" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="52" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="60" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etStartDetBot" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="82" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="69" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  tap Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etStartTapY" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="70" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="66" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
         <!-- Row: Arrow tap -->
@@ -115,12 +115,12 @@
                 android:text="X:" android:textSize="12sp"/>
             <EditText android:id="@+id/etArrowTapX" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="68" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="90" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etArrowTapY" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="73" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="71" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
         <!-- Row: submitBtn detect + tap -->
@@ -136,15 +136,31 @@
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etSubDetBot" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="92" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="82" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  tap Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etSubTapY" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="80" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="77" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
-        <!-- Row: matchThis crop -->
+        <!-- Row: matchThis crop X -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟧 matchThis crop X:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etMatchLeft" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="25" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etMatchRight" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="number"
+                android:hint="49" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: matchThis crop Y -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="12dp">
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
@@ -152,12 +168,12 @@
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchTop" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="38" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="45" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchBot" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="number"
-                android:hint="68" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="65" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
         <!-- Calib buttons -->

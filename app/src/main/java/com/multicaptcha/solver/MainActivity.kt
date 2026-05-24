@@ -171,6 +171,8 @@ class MainActivity : AppCompatActivity() {
         binding.etSubDetTop.setText(SolverConfig.submitDetectTop.toString())
         binding.etSubDetBot.setText(SolverConfig.submitDetectBot.toString())
         binding.etSubTapY.setText(SolverConfig.submitTapY.toString())
+        binding.etMatchLeft.setText(SolverConfig.matchCropLeft.toString())
+        binding.etMatchRight.setText(SolverConfig.matchCropRight.toString())
         binding.etMatchTop.setText(SolverConfig.matchCropTop.toString())
         binding.etMatchBot.setText(SolverConfig.matchCropBot.toString())
     }
@@ -178,15 +180,17 @@ class MainActivity : AppCompatActivity() {
     private fun saveCalibrationFromUI() {
         fun et(et: android.widget.EditText, default: Int) =
             et.text.toString().toIntOrNull()?.coerceIn(0, 100) ?: default
-        SolverConfig.startDetectTop = et(binding.etStartDetTop, 52)
-        SolverConfig.startDetectBot = et(binding.etStartDetBot, 82)
-        SolverConfig.startTapY      = et(binding.etStartTapY,   70)
-        SolverConfig.arrowTapX      = et(binding.etArrowTapX,   68)
-        SolverConfig.arrowTapY      = et(binding.etArrowTapY,   73)
-        SolverConfig.submitDetectTop= et(binding.etSubDetTop,   75)
-        SolverConfig.submitDetectBot= et(binding.etSubDetBot,   92)
-        SolverConfig.submitTapY     = et(binding.etSubTapY,     80)
-        SolverConfig.matchCropTop   = et(binding.etMatchTop,    38)
-        SolverConfig.matchCropBot   = et(binding.etMatchBot,    68)
+        SolverConfig.startDetectTop  = et(binding.etStartDetTop,  52)
+        SolverConfig.startDetectBot  = et(binding.etStartDetBot,  82)
+        SolverConfig.startTapY       = et(binding.etStartTapY,    70)
+        SolverConfig.arrowTapX       = et(binding.etArrowTapX,    68)
+        SolverConfig.arrowTapY       = et(binding.etArrowTapY,    73)
+        SolverConfig.submitDetectTop = et(binding.etSubDetTop,    75)
+        SolverConfig.submitDetectBot = et(binding.etSubDetBot,    92)
+        SolverConfig.submitTapY      = et(binding.etSubTapY,      80)
+        SolverConfig.matchCropLeft   = et(binding.etMatchLeft,    25)
+        SolverConfig.matchCropRight  = et(binding.etMatchRight,   49)
+        SolverConfig.matchCropTop    = et(binding.etMatchTop,     45)
+        SolverConfig.matchCropBot    = et(binding.etMatchBot,     65)
     }
 }
