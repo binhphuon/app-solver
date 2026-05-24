@@ -37,15 +37,23 @@ class MainActivity : AppCompatActivity() {
 
         // Check root + grant accessibility
         if (RootShell.hasRoot()) {
-            binding.tvStatus.text = "✅ Root OK"
+            binding.tvStatus.text = "✅ Root OK — đang bật Accessibility..."
             thread {
                 RootShell.grantAccessibilityService(packageName)
-                Thread.sleep(1500)   // chờ service bind
+
+                // Retry loop: đợi tối đa 10 giây cho service bind
+                val deadline = System.currentTimeMillis() + 10_000L
+                while (System.currentTimeMillis() < deadline) {
+                    Thread.sleep(500)
+                    if (com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) break
+                }
+
+                val status = RootShell.readAccessibilityStatus()
                 runOnUiThread {
                     if (com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) {
                         binding.tvStatus.text = "✅ Root + Accessibility OK"
                     } else {
-                        binding.tvStatus.text = "✅ Root OK (Accessibility đang khởi động...)"
+                        binding.tvStatus.text = "⚠ Accessibility chưa bind\n$status"
                     }
                 }
             }
@@ -91,7 +99,16 @@ class MainActivity : AppCompatActivity() {
         // ── Dump accessibility tree ───────────────────────────────
         binding.btnDumpA11y.setOnClickListener {
             if (!com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) {
-                Toast.makeText(this, "⚠️ Accessibility chưa sẵn sàng!", Toast.LENGTH_SHORT).show()
+                // Log debug info để diagnose
+                thread {
+                    val status = RootShell.readAccessibilityStatus()
+                    runOnUiThread {
+                        binding.tvStatus.text = "⚠ Accessibility chưa bind\n$status"
+                        Toast.makeText(this,
+                            "Accessibility chưa sẵn sàng!\n$status",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
                 return@setOnClickListener
             }
             com.multicaptcha.solver.core.DebugLogger.start()

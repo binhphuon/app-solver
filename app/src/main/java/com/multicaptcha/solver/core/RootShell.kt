@@ -45,19 +45,42 @@ object RootShell {
     /**
      * Grant Accessibility Service cho app qua root.
      * Không cần user vào Settings → Accessibility.
+     * Dùng full class name (không dùng dot-notation) để tương thích mọi ROM.
+     * Sau khi ghi setting, gửi broadcast để AccessibilityManagerService re-evaluate ngay.
      */
     fun grantAccessibilityService(packageName: String) {
-        val componentName = "$packageName/.core.SolverAccessibilityService"
-        // Đọc danh sách service đang enabled
+        // Full class name — dot-notation (.core.Xxx) một số ROM không nhận
+        val fullClass     = "$packageName.core.SolverAccessibilityService"
+        val componentName = "$packageName/$fullClass"
+
         val current = exec("settings get secure enabled_accessibility_services").trim()
+        Log.i(TAG, "Current accessibility services: '$current'")
+
         if (current.contains(componentName)) {
             Log.i(TAG, "Accessibility already granted: $componentName")
+            // Vẫn đảm bảo accessibility_enabled = 1
+            exec("settings put secure accessibility_enabled 1")
             return
         }
-        val newList = if (current.isEmpty() || current == "null") componentName
-                      else "$current:$componentName"
+
+        val newList = when {
+            current.isEmpty() || current == "null" -> componentName
+            else -> "$current:$componentName"
+        }
         exec("settings put secure enabled_accessibility_services $newList")
         exec("settings put secure accessibility_enabled 1")
-        Log.i(TAG, "Accessibility granted: $componentName")
+        Log.i(TAG, "Accessibility granted: $componentName (newList=$newList)")
+
+        // Trigger AccessibilityManagerService re-evaluate setting ngay lập tức
+        exec("am broadcast -a android.intent.action.BOOT_COMPLETED -p $packageName --user 0 > /dev/null 2>&1 || true")
+    }
+
+    /**
+     * Đọc trạng thái accessibility hiện tại để debug
+     */
+    fun readAccessibilityStatus(): String {
+        val services = exec("settings get secure enabled_accessibility_services").trim()
+        val enabled  = exec("settings get secure accessibility_enabled").trim()
+        return "enabled=$enabled services=$services"
     }
 }
