@@ -91,17 +91,17 @@
                 android:layout_weight="1" android:text="🟩 startBtn detect:"
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etStartDetTop" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="60" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etStartDetBot" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="69" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  tap Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etStartTapY" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="66" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
@@ -114,12 +114,12 @@
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="X:" android:textSize="12sp"/>
             <EditText android:id="@+id/etArrowTapX" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="90" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etArrowTapY" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="71" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
@@ -130,17 +130,17 @@
                 android:layout_weight="1" android:text="🟦 submitBtn detect:"
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etSubDetTop" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="75" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etSubDetBot" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="82" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text="  tap Y:" android:textSize="12sp"/>
             <EditText android:id="@+id/etSubTapY" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="77" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
@@ -151,12 +151,12 @@
                 android:layout_weight="1" android:text="🟧 matchThis crop X:"
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchLeft" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="25" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchRight" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="49" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
@@ -167,12 +167,12 @@
                 android:layout_weight="1" android:text="🟧 matchThis crop Y:"
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchTop" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="45" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchBot" android:layout_width="48dp"
-                android:layout_height="wrap_content" android:inputType="number"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="65" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 

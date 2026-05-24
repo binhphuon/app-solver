@@ -163,34 +163,36 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadCalibrationToUI() {
-        binding.etStartDetTop.setText(SolverConfig.startDetectTop.toString())
-        binding.etStartDetBot.setText(SolverConfig.startDetectBot.toString())
-        binding.etStartTapY.setText(SolverConfig.startTapY.toString())
-        binding.etArrowTapX.setText(SolverConfig.arrowTapX.toString())
-        binding.etArrowTapY.setText(SolverConfig.arrowTapY.toString())
-        binding.etSubDetTop.setText(SolverConfig.submitDetectTop.toString())
-        binding.etSubDetBot.setText(SolverConfig.submitDetectBot.toString())
-        binding.etSubTapY.setText(SolverConfig.submitTapY.toString())
-        binding.etMatchLeft.setText(SolverConfig.matchCropLeft.toString())
-        binding.etMatchRight.setText(SolverConfig.matchCropRight.toString())
-        binding.etMatchTop.setText(SolverConfig.matchCropTop.toString())
-        binding.etMatchBot.setText(SolverConfig.matchCropBot.toString())
+        // Hiển thị Float gọn: bỏ .0 nếu là số nguyên, giữ thập phân nếu có
+        fun fmt(f: Float) = if (f == f.toLong().toFloat()) f.toLong().toString() else "%.1f".format(f)
+        binding.etStartDetTop.setText(fmt(SolverConfig.startDetectTop))
+        binding.etStartDetBot.setText(fmt(SolverConfig.startDetectBot))
+        binding.etStartTapY.setText(fmt(SolverConfig.startTapY))
+        binding.etArrowTapX.setText(fmt(SolverConfig.arrowTapX))
+        binding.etArrowTapY.setText(fmt(SolverConfig.arrowTapY))
+        binding.etSubDetTop.setText(fmt(SolverConfig.submitDetectTop))
+        binding.etSubDetBot.setText(fmt(SolverConfig.submitDetectBot))
+        binding.etSubTapY.setText(fmt(SolverConfig.submitTapY))
+        binding.etMatchLeft.setText(fmt(SolverConfig.matchCropLeft))
+        binding.etMatchRight.setText(fmt(SolverConfig.matchCropRight))
+        binding.etMatchTop.setText(fmt(SolverConfig.matchCropTop))
+        binding.etMatchBot.setText(fmt(SolverConfig.matchCropBot))
     }
 
     private fun saveCalibrationFromUI() {
-        fun et(et: android.widget.EditText, default: Int) =
-            et.text.toString().toIntOrNull()?.coerceIn(0, 100) ?: default
-        SolverConfig.startDetectTop  = et(binding.etStartDetTop,  52)
-        SolverConfig.startDetectBot  = et(binding.etStartDetBot,  82)
-        SolverConfig.startTapY       = et(binding.etStartTapY,    70)
-        SolverConfig.arrowTapX       = et(binding.etArrowTapX,    68)
-        SolverConfig.arrowTapY       = et(binding.etArrowTapY,    73)
-        SolverConfig.submitDetectTop = et(binding.etSubDetTop,    75)
-        SolverConfig.submitDetectBot = et(binding.etSubDetBot,    92)
-        SolverConfig.submitTapY      = et(binding.etSubTapY,      80)
-        SolverConfig.matchCropLeft   = et(binding.etMatchLeft,    25)
-        SolverConfig.matchCropRight  = et(binding.etMatchRight,   49)
-        SolverConfig.matchCropTop    = et(binding.etMatchTop,     45)
-        SolverConfig.matchCropBot    = et(binding.etMatchBot,     65)
+        fun et(et: android.widget.EditText, default: Float) =
+            et.text.toString().replace(',', '.').toFloatOrNull()?.coerceIn(0f, 100f) ?: default
+        SolverConfig.startDetectTop  = et(binding.etStartDetTop,  60f)
+        SolverConfig.startDetectBot  = et(binding.etStartDetBot,  69f)
+        SolverConfig.startTapY       = et(binding.etStartTapY,    66f)
+        SolverConfig.arrowTapX       = et(binding.etArrowTapX,    90f)
+        SolverConfig.arrowTapY       = et(binding.etArrowTapY,    71f)
+        SolverConfig.submitDetectTop = et(binding.etSubDetTop,    75f)
+        SolverConfig.submitDetectBot = et(binding.etSubDetBot,    82f)
+        SolverConfig.submitTapY      = et(binding.etSubTapY,      77f)
+        SolverConfig.matchCropLeft   = et(binding.etMatchLeft,    25f)
+        SolverConfig.matchCropRight  = et(binding.etMatchRight,   49f)
+        SolverConfig.matchCropTop    = et(binding.etMatchTop,     45f)
+        SolverConfig.matchCropBot    = et(binding.etMatchBot,     65f)
     }
 }

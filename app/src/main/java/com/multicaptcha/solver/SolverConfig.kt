@@ -5,14 +5,9 @@ import android.content.SharedPreferences
 
 /**
  * Calibration values stored in SharedPreferences.
- * All values are integers representing % of slot height (or width for X).
+ * All values are Float representing % of slot height (or width for X).
+ * Supports decimals like 65.5, 38.2, etc.
  * Call init() once from MainActivity.onCreate().
- *
- * Defaults = giá trị tốt nhất đã calibrate thực tế:
- *   startBtn detect: 60-69  tap Y: 66
- *   arrow tap: X=90  Y=71
- *   submit detect: 75-82  tap Y: 77
- *   matchThis crop: X=25-49  Y=45-65
  */
 object SolverConfig {
 
@@ -23,46 +18,46 @@ object SolverConfig {
         prefs = ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     }
 
-    private fun getInt(key: String, default: Int): Int = prefs?.getInt(key, default) ?: default
-    private fun setInt(key: String, v: Int) { prefs?.edit()?.putInt(key, v)?.apply() }
+    private fun getFloat(key: String, default: Float): Float = prefs?.getFloat(key, default) ?: default
+    private fun setFloat(key: String, v: Float) { prefs?.edit()?.putFloat(key, v)?.apply() }
 
     // ── Start Puzzle button ──────────────────────────────────────
-    var startDetectTop: Int
-        get() = getInt("sdt", 60); set(v) = setInt("sdt", v)
-    var startDetectBot: Int
-        get() = getInt("sdb", 69); set(v) = setInt("sdb", v)
-    var startTapY: Int                          // % of slot height
-        get() = getInt("sty", 66); set(v) = setInt("sty", v)
+    var startDetectTop: Float
+        get() = getFloat("sdt", 60f); set(v) = setFloat("sdt", v)
+    var startDetectBot: Float
+        get() = getFloat("sdb", 69f); set(v) = setFloat("sdb", v)
+    var startTapY: Float
+        get() = getFloat("sty", 66f); set(v) = setFloat("sty", v)
 
     // ── Right arrow (→) ─────────────────────────────────────────
-    var arrowTapX: Int                          // % of slot width
-        get() = getInt("arx", 90); set(v) = setInt("arx", v)
-    var arrowTapY: Int
-        get() = getInt("ary", 71); set(v) = setInt("ary", v)
+    var arrowTapX: Float
+        get() = getFloat("arx", 90f); set(v) = setFloat("arx", v)
+    var arrowTapY: Float
+        get() = getFloat("ary", 71f); set(v) = setFloat("ary", v)
 
     // ── Submit button ────────────────────────────────────────────
-    var submitDetectTop: Int
-        get() = getInt("sudt", 75); set(v) = setInt("sudt", v)
-    var submitDetectBot: Int
-        get() = getInt("sudb", 82); set(v) = setInt("sudb", v)
-    var submitTapY: Int
-        get() = getInt("subty", 77); set(v) = setInt("subty", v)
+    var submitDetectTop: Float
+        get() = getFloat("sudt", 75f); set(v) = setFloat("sudt", v)
+    var submitDetectBot: Float
+        get() = getFloat("sudb", 82f); set(v) = setFloat("sudb", v)
+    var submitTapY: Float
+        get() = getFloat("subty", 77f); set(v) = setFloat("subty", v)
 
     // ── "Match This!" reference image crop ───────────────────────
-    var matchCropLeft: Int                        // % of slot width
-        get() = getInt("mcl", 25); set(v) = setInt("mcl", v)
-    var matchCropRight: Int
-        get() = getInt("mcr", 49); set(v) = setInt("mcr", v)
-    var matchCropTop: Int                         // % of slot height
-        get() = getInt("mct", 45); set(v) = setInt("mct", v)
-    var matchCropBot: Int
-        get() = getInt("mcb", 65); set(v) = setInt("mcb", v)
+    var matchCropLeft: Float
+        get() = getFloat("mcl", 25f); set(v) = setFloat("mcl", v)
+    var matchCropRight: Float
+        get() = getFloat("mcr", 49f); set(v) = setFloat("mcr", v)
+    var matchCropTop: Float
+        get() = getFloat("mct", 45f); set(v) = setFloat("mct", v)
+    var matchCropBot: Float
+        get() = getFloat("mcb", 65f); set(v) = setFloat("mcb", v)
 
     fun resetDefaults() {
-        startDetectTop = 60; startDetectBot = 69; startTapY = 66
-        arrowTapX = 90;  arrowTapY = 71
-        submitDetectTop = 75; submitDetectBot = 82; submitTapY = 77
-        matchCropLeft = 25; matchCropRight = 49; matchCropTop = 45; matchCropBot = 65
+        startDetectTop = 60f; startDetectBot = 69f; startTapY = 66f
+        arrowTapX = 90f;  arrowTapY = 71f
+        submitDetectTop = 75f; submitDetectBot = 82f; submitTapY = 77f
+        matchCropLeft = 25f; matchCropRight = 49f; matchCropTop = 45f; matchCropBot = 65f
     }
 
     fun toDebugString(): String = """
