@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlin.concurrent.thread
@@ -208,9 +209,13 @@ class SolverAccessibilityService : AccessibilityService() {
         serviceInfo = info
         DebugLogger.i(TAG, "AccessibilityService connected ✓")
 
-        // Đăng ký BroadcastReceiver nội bộ
-        registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP),
-            Context.RECEIVER_NOT_EXPORTED)
+        // Đăng ký BroadcastReceiver nội bộ (API 33+ yêu cầu export flag tường minh)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP))
+        }
 
         // Hiển thị persistent notification với nút Dump
         showDumpNotification()

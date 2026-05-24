@@ -1,9 +1,14 @@
 package com.multicaptcha.solver
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.multicaptcha.solver.core.DebugLogger
 import com.multicaptcha.solver.core.RootShell
 import com.multicaptcha.solver.core.WindowLayoutManager
@@ -31,6 +36,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Android 13+ cần runtime permission để hiện notification
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this,
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS), 0)
+        }
+
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         binding.etApiKey.setText(prefs.getString(KEY_API, ""))
         binding.etCaptchaOther.setText(SolverConfig.captchaOther)
@@ -39,7 +52,11 @@ class MainActivity : AppCompatActivity() {
         if (RootShell.hasRoot()) {
             binding.tvStatus.text = "✅ Root OK — đang bật Accessibility..."
             thread {
-                RootShell.grantAccessibilityService(packageName)
+                // Dùng ::class.java.name để lấy tên class thực (không bị ảnh hưởng bởi applicationIdSuffix)
+                RootShell.grantAccessibilityService(
+                    packageName,
+                    com.multicaptcha.solver.core.SolverAccessibilityService::class.java.name
+                )
 
                 // Retry loop: đợi tối đa 10 giây cho service bind
                 val deadline = System.currentTimeMillis() + 10_000L
