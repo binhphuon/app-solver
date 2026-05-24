@@ -3,6 +3,7 @@ package com.multicaptcha.solver.solver
 import android.graphics.Bitmap
 import com.multicaptcha.solver.SolverConfig
 import com.multicaptcha.solver.core.DebugLogger
+import com.multicaptcha.solver.core.OcrHelper
 import com.multicaptcha.solver.core.OverlayManager
 import com.multicaptcha.solver.core.ScreenCapture
 import com.multicaptcha.solver.core.SolverAccessibilityService
@@ -112,23 +113,52 @@ class FuncaptchaSolver(
             carouselPos = 1
         }
 
-        // ── 1. Đọc question text + total options qua Accessibility ─
-        val questionText = SolverAccessibilityService.getQuestionText(slot.packageName)
+        // ── 1. Đọc question text + total options bằng OCR ──────
+        // FunCaptcha render bằng SurfaceView → accessibility KHÔNG đọc được nội dung,
+        // chỉ OCR mới lấy được text "Using the arrows, move the person... (1 of 5)"
+        val slotBmpFirst = ScreenCapture.cropSlot(fullScreenshot, slot)
+        val questionBmp  = ScreenCapture.cropRegion(slotBmpFirst, slot.questionTextRect)
+
+        OverlayManager.updateSlotStep(slot.index, "OCR đọc câu hỏi...")
+        val ocrText = OcrHelper.extractText(questionBmp)
+        DebugLogger.d(TAG, "OCR question rect=${slot.questionTextRect}")
+
+        // Parse "(N of M)" để biết total options luôn nếu có
+        val ocrTotal = ocrText?.let {
+            Regex("""\(\s*\d+\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
+                ?.groupValues?.get(1)?.toIntOrNull()
+        }
+        if (ocrTotal != null) {
+            DebugLogger.i(TAG, "OCR counter: total=$ocrTotal options")
+        }
+
+        // Loại bỏ phần "(N of M)" khỏi question text gửi API
+        val cleanedOcr = ocrText
+            ?.replace(Regex("""\(\s*\d+\s*of\s*\d+\s*\)""", RegexOption.IGNORE_CASE), "")
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+
+        val questionText = cleanedOcr?.takeIf { it.length >= 10 }   // OCR có thể đọc rác → cần >=10 ký tự
             ?: SolverConfig.captchaOther.ifBlank { null }
+
         if (questionText.isNullOrBlank()) {
-            DebugLogger.w(TAG, "No question text — API 'other' will be empty")
+            DebugLogger.w(TAG, "No question text (OCR fail + no manual fallback) — API 'other' will be empty")
         } else {
             DebugLogger.i(TAG, "Question: \"$questionText\"")
         }
 
-        val accessibilityTotal = SolverAccessibilityService.getTotalOptions(slot.packageName)
-        if (accessibilityTotal != null) {
-            DebugLogger.i(TAG, "Accessibility counter: total=$accessibilityTotal options")
-        }
+        // ── Đếm dots (carousel indicator phía trên Submit) ──────
+        val dotsBmp   = ScreenCapture.cropRegion(slotBmpFirst, slot.dotsCountRect)
+        val dotsCount = ScreenCapture.countDots(dotsBmp)
+        DebugLogger.i(TAG, "Dot count: $dotsCount (rect=${slot.dotsCountRect})")
+
+        // Tổng options: ưu tiên OCR "(N of M)" → fallback đếm dots → fallback accessibility
+        val accessibilityTotal = ocrTotal
+            ?: dotsCount.takeIf { it in 2..30 }
+            ?: SolverAccessibilityService.getTotalOptions(slot.packageName)
 
         // ── Crop reference image từ screenshot hiện tại ──────────
-        val slotBmpFirst = ScreenCapture.cropSlot(fullScreenshot, slot)
-        val refBmp       = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
+        val refBmp = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
         DebugLogger.d(TAG, "Reference rect=${slot.matchThisImageRect}")
 
         // ── 2. Capture tất cả options bằng cách scroll (số lượng dynamic) ──
@@ -176,8 +206,13 @@ class FuncaptchaSolver(
         OverlayManager.updateSlotStep(slot.index, "Ghép $totalOptions ảnh...")
         val optionsStrip = ScreenCapture.stitchHorizontal(optionBitmaps)
         val combined     = ScreenCapture.stackVertical(optionsStrip, refBmp)
-        val imageB64     = ScreenCapture.toBase64Png(combined)   // PNG như OMO dùng
         DebugLogger.d(TAG, "Combined image: ${combined.width}x${combined.height}")
+
+        // Lưu ảnh final ra /Download/solver_image/ để debug (trước khi base64)
+        val ts = System.currentTimeMillis()
+        ScreenCapture.saveDebugImage(combined, "slot${slot.index}_${ts}_n${totalOptions}.png")
+
+        val imageB64 = ScreenCapture.toBase64Png(combined)   // PNG như OMO dùng
 
         if (imageB64.isEmpty()) {
             DebugLogger.e(TAG, "imageBase64 is empty — cannot send to API")

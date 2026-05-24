@@ -179,6 +179,91 @@ object ScreenCapture {
         return result
     }
 
+    // ── Dot counting (carousel page indicator) ──────────────────
+
+    /**
+     * Đếm số dots (chấm tròn) trong vùng indicator phía trên Submit.
+     * Mỗi dot = 1 option của carousel.
+     *
+     * Thuật toán:
+     *  1. Project tất cả pixel "tối" (brightness < threshold) lên trục X — tạo histogram
+     *  2. Mỗi column có >= h/3 pixel tối được coi là "dot column"
+     *  3. Đếm các nhóm liên tiếp của dot columns → mỗi nhóm = 1 dot
+     *
+     * Robust với cả dot filled và outline-only (vì project lên X bắt được cả 2 cạnh outline).
+     */
+    fun countDots(bmp: Bitmap, brightnessThreshold: Int = 200): Int {
+        val w = bmp.width
+        val h = bmp.height
+        if (w < 4 || h < 2) return 0
+
+        val darkPerCol = IntArray(w)
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                val p = bmp.getPixel(x, y)
+                val br = ((p shr 16 and 0xFF) + (p shr 8 and 0xFF) + (p and 0xFF)) / 3
+                if (br < brightnessThreshold) darkPerCol[x]++
+            }
+        }
+
+        // Column "đáng kể" nếu có >= h/3 pixel tối
+        val colThreshold = (h / 3).coerceAtLeast(1)
+        var dots     = 0
+        var inGroup  = false
+        var groupLen = 0
+        val minDotWidth = 1   // ≥1 col để khử noise đơn lẻ (chỉnh tuỳ DPI)
+
+        for (x in 0 until w) {
+            val active = darkPerCol[x] >= colThreshold
+            if (active) {
+                if (!inGroup) { inGroup = true; groupLen = 1 }
+                else groupLen++
+            } else {
+                if (inGroup) {
+                    if (groupLen >= minDotWidth) dots++
+                    inGroup = false; groupLen = 0
+                }
+            }
+        }
+        if (inGroup && groupLen >= minDotWidth) dots++
+
+        DebugLogger.d(TAG, "countDots ${w}x${h}: $dots dots (colThr=$colThreshold)")
+        return dots
+    }
+
+    // ── Debug image save ────────────────────────────────────────
+
+    /**
+     * Lưu bitmap vào /storage/emulated/0/Download/solver_image/<filename>.png
+     * Dùng để debug ảnh final trước khi gửi API.
+     * Tự động giữ tối đa MAX_KEEP file (xoá cũ nhất khi vượt).
+     */
+    fun saveDebugImage(bmp: Bitmap, filename: String): String? {
+        return try {
+            val dir = java.io.File("/storage/emulated/0/Download/solver_image")
+            if (!dir.exists()) dir.mkdirs()
+
+            // Cleanup: giữ tối đa MAX_KEEP file, xoá những file cũ nhất
+            val MAX_KEEP = 50
+            val files = dir.listFiles()?.sortedBy { it.lastModified() } ?: emptyList()
+            if (files.size >= MAX_KEEP) {
+                val toDelete = files.take(files.size - MAX_KEEP + 1)
+                toDelete.forEach { runCatching { it.delete() } }
+                DebugLogger.d(TAG, "Cleanup ${toDelete.size} old solver_image file(s)")
+            }
+
+            val outFile = java.io.File(dir, filename)
+            java.io.FileOutputStream(outFile).use { fos ->
+                bmp.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            DebugLogger.i(TAG, "Saved debug image: ${outFile.absolutePath}")
+            outFile.absolutePath
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "saveDebugImage failed", e)
+            null
+        }
+    }
+
     // ── Content detection ─────────────────────────────────────────
 
     /**

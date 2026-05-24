@@ -249,6 +249,18 @@ class MainActivity : AppCompatActivity() {
         binding.etMatchRight.setText(fmt(SolverConfig.matchCropRight))
         binding.etMatchTop.setText(fmt(SolverConfig.matchCropTop))
         binding.etMatchBot.setText(fmt(SolverConfig.matchCropBot))
+        binding.etOptLeft.setText(fmt(SolverConfig.optionCropLeft))
+        binding.etOptRight.setText(fmt(SolverConfig.optionCropRight))
+        binding.etOptTop.setText(fmt(SolverConfig.optionCropTop))
+        binding.etOptBot.setText(fmt(SolverConfig.optionCropBot))
+        binding.etQLeft.setText(fmt(SolverConfig.questionCropLeft))
+        binding.etQRight.setText(fmt(SolverConfig.questionCropRight))
+        binding.etQTop.setText(fmt(SolverConfig.questionCropTop))
+        binding.etQBot.setText(fmt(SolverConfig.questionCropBot))
+        binding.etDotsLeft.setText(fmt(SolverConfig.dotsCropLeft))
+        binding.etDotsRight.setText(fmt(SolverConfig.dotsCropRight))
+        binding.etDotsTop.setText(fmt(SolverConfig.dotsCropTop))
+        binding.etDotsBot.setText(fmt(SolverConfig.dotsCropBot))
     }
 
     private fun saveCalibrationFromUI() {
@@ -266,5 +278,17 @@ class MainActivity : AppCompatActivity() {
         SolverConfig.matchCropRight  = et(binding.etMatchRight,   49f)
         SolverConfig.matchCropTop    = et(binding.etMatchTop,     45f)
         SolverConfig.matchCropBot    = et(binding.etMatchBot,     65f)
+        SolverConfig.optionCropLeft  = et(binding.etOptLeft,      51f)
+        SolverConfig.optionCropRight = et(binding.etOptRight,     98f)
+        SolverConfig.optionCropTop   = et(binding.etOptTop,       45f)
+        SolverConfig.optionCropBot   = et(binding.etOptBot,       65f)
+        SolverConfig.questionCropLeft  = et(binding.etQLeft,      2f)
+        SolverConfig.questionCropRight = et(binding.etQRight,     98f)
+        SolverConfig.questionCropTop   = et(binding.etQTop,       30f)
+        SolverConfig.questionCropBot   = et(binding.etQBot,       44f)
+        SolverConfig.dotsCropLeft    = et(binding.etDotsLeft,     10f)
+        SolverConfig.dotsCropRight   = et(binding.etDotsRight,    90f)
+        SolverConfig.dotsCropTop     = et(binding.etDotsTop,      70f)
+        SolverConfig.dotsCropBot     = et(binding.etDotsBot,      74f)
     }
 }

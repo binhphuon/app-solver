@@ -37,6 +37,22 @@ data class SlotConfig(
     //  │         [ Submit ]               │ 78-88%
     //  └──────────────────────────────────┘
 
+    /** Vùng text câu hỏi — crop để OCR đọc instruction text */
+    val questionTextRect: Rect get() = Rect(
+        (width  * SolverConfig.questionCropLeft  / 100f).toInt(),
+        (height * SolverConfig.questionCropTop   / 100f).toInt(),
+        (width  * SolverConfig.questionCropRight / 100f).toInt(),
+        (height * SolverConfig.questionCropBot   / 100f).toInt()
+    )
+
+    /** Vùng dots indicator phía trên Submit (đếm để biết tổng options) */
+    val dotsCountRect: Rect get() = Rect(
+        (width  * SolverConfig.dotsCropLeft  / 100f).toInt(),
+        (height * SolverConfig.dotsCropTop   / 100f).toInt(),
+        (width  * SolverConfig.dotsCropRight / 100f).toInt(),
+        (height * SolverConfig.dotsCropBot   / 100f).toInt()
+    )
+
     /** Ảnh tham chiếu "Match This!" — gửi lên API (X và Y đều chỉnh được) */
     val matchThisImageRect: Rect get() = Rect(
         (width  * SolverConfig.matchCropLeft  / 100f).toInt(),
@@ -45,15 +61,12 @@ data class SlotConfig(
         (height * SolverConfig.matchCropBot   / 100f).toInt()
     )
 
-    /**
-     * Ảnh option hiện tại (nửa phải carousel).
-     * X bắt đầu ngay sau reference crop, cùng Y range.
-     */
+    /** Ảnh option hiện tại (nửa phải carousel) — calibrate độc lập */
     val currentOptionRect: Rect get() = Rect(
-        (width  * (SolverConfig.matchCropRight + 2f) / 100f).toInt(),
-        (height * SolverConfig.matchCropTop / 100f).toInt(),
-        (width  * 0.98f).toInt(),
-        (height * SolverConfig.matchCropBot / 100f).toInt()
+        (width  * SolverConfig.optionCropLeft  / 100f).toInt(),
+        (height * SolverConfig.optionCropTop   / 100f).toInt(),
+        (width  * SolverConfig.optionCropRight / 100f).toInt(),
+        (height * SolverConfig.optionCropBot   / 100f).toInt()
     )
 
     /** Toàn bộ vùng challenge (cả 2 ảnh) — để check hasContent */

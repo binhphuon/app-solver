@@ -58,11 +58,44 @@ object SolverConfig {
     var matchCropBot: Float
         get() = getFloat("mcb", 65f); set(v) = setFloat("mcb", v)
 
+    // ── Vùng câu hỏi (OCR) — chỉnh được cả X và Y ────────────────
+    var questionCropLeft: Float
+        get() = getFloat("qcl", 2f);  set(v) = setFloat("qcl", v)
+    var questionCropRight: Float
+        get() = getFloat("qcr", 98f); set(v) = setFloat("qcr", v)
+    var questionCropTop: Float
+        get() = getFloat("qct", 30f); set(v) = setFloat("qct", v)
+    var questionCropBot: Float
+        get() = getFloat("qcb", 44f); set(v) = setFloat("qcb", v)
+
+    // ── Vùng option hiện tại (carousel) — chỉnh được cả X và Y ───
+    var optionCropLeft: Float
+        get() = getFloat("ocl", 51f); set(v) = setFloat("ocl", v)
+    var optionCropRight: Float
+        get() = getFloat("ocr", 98f); set(v) = setFloat("ocr", v)
+    var optionCropTop: Float
+        get() = getFloat("oct", 45f); set(v) = setFloat("oct", v)
+    var optionCropBot: Float
+        get() = getFloat("ocb", 65f); set(v) = setFloat("ocb", v)
+
+    // ── Vùng dots count (carousel page indicator phía trên Submit) — X+Y ─
+    var dotsCropLeft: Float
+        get() = getFloat("dcl", 10f); set(v) = setFloat("dcl", v)
+    var dotsCropRight: Float
+        get() = getFloat("dcr", 90f); set(v) = setFloat("dcr", v)
+    var dotsCropTop: Float
+        get() = getFloat("dct", 70f); set(v) = setFloat("dct", v)
+    var dotsCropBot: Float
+        get() = getFloat("dcb", 74f); set(v) = setFloat("dcb", v)
+
     fun resetDefaults() {
         startDetectTop = 60f; startDetectBot = 69f; startTapY = 66f
         arrowTapX = 90f;  arrowTapY = 71f
         submitDetectTop = 75f; submitDetectBot = 82f; submitTapY = 77f
         matchCropLeft = 25f; matchCropRight = 49f; matchCropTop = 45f; matchCropBot = 65f
+        questionCropLeft = 2f; questionCropRight = 98f; questionCropTop = 30f; questionCropBot = 44f
+        optionCropLeft = 51f; optionCropRight = 98f; optionCropTop = 45f; optionCropBot = 65f
+        dotsCropLeft = 10f; dotsCropRight = 90f; dotsCropTop = 70f; dotsCropBot = 74f
         // captchaOther intentionally not reset — user must re-enter
     }
 

@@ -41,6 +41,18 @@ class DebugOverlayView(context: Context) : View(context) {
     private val matchFillPaint  = buildPaint(Color.argb(35,  255, 165, 0),  style = Paint.Style.FILL)
     private val matchStrokePaint= buildPaint(Color.argb(220, 255, 165, 0),  style = Paint.Style.STROKE, sw = 2.5f)
 
+    // Zone option capture (tím/magenta)
+    private val optFillPaint    = buildPaint(Color.argb(35,  220, 80, 220), style = Paint.Style.FILL)
+    private val optStrokePaint  = buildPaint(Color.argb(220, 220, 80, 220), style = Paint.Style.STROKE, sw = 2.5f)
+
+    // Zone question OCR (vàng nhạt)
+    private val qFillPaint      = buildPaint(Color.argb(35,  255, 255, 100), style = Paint.Style.FILL)
+    private val qStrokePaint    = buildPaint(Color.argb(220, 255, 255, 100), style = Paint.Style.STROKE, sw = 2.5f)
+
+    // Zone dots count (cyan)
+    private val dotsFillPaint   = buildPaint(Color.argb(35,  80, 230, 230),  style = Paint.Style.FILL)
+    private val dotsStrokePaint = buildPaint(Color.argb(220, 80, 230, 230),  style = Paint.Style.STROKE, sw = 2.5f)
+
     // Label zone
     private val zoneLabelPaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface  = Typeface.MONOSPACE
@@ -137,6 +149,21 @@ class DebugOverlayView(context: Context) : View(context) {
                 matchFillPaint, matchStrokePaint,
                 "matchThis crop", Color.argb(220, 255, 165, 0))
 
+            // ── currentOptionRect (tím) ────
+            drawZoneRect(canvas, ox, oy, slot.currentOptionRect,
+                optFillPaint, optStrokePaint,
+                "option capture", Color.argb(220, 220, 80, 220))
+
+            // ── questionTextRect (vàng nhạt) ────
+            drawZoneRect(canvas, ox, oy, slot.questionTextRect,
+                qFillPaint, qStrokePaint,
+                "OCR question", Color.argb(220, 255, 255, 100))
+
+            // ── dotsCountRect (cyan) ────
+            drawZoneRect(canvas, ox, oy, slot.dotsCountRect,
+                dotsFillPaint, dotsStrokePaint,
+                "dots count", Color.argb(220, 80, 230, 230))
+
             // ── Crosshair: vị trí sẽ click ────
             // Start Puzzle click
             drawCrossHair(canvas,
@@ -226,6 +253,9 @@ class DebugOverlayView(context: Context) : View(context) {
             "■ startBtn detect"  to Color.argb(220, 50, 255, 50),
             "■ submitBtn detect" to Color.argb(220, 50, 150, 255),
             "■ matchThis crop"   to Color.argb(220, 255, 165, 0),
+            "■ option capture"   to Color.argb(220, 220, 80, 220),
+            "■ OCR question"     to Color.argb(220, 255, 255, 100),
+            "■ dots count"       to Color.argb(220, 80, 230, 230),
             "+ click target"     to Color.argb(180, 200, 200, 200),
             "● tap flash"        to Color.argb(220, 255, 220, 0)
         )

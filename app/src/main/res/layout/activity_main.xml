@@ -176,7 +176,7 @@
 
         <!-- Row: matchThis crop Y -->
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="12dp">
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_weight="1" android:text="🟧 matchThis crop Y:"
                 android:textSize="12sp"/>
@@ -188,6 +188,102 @@
             <EditText android:id="@+id/etMatchBot" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="65" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: option capture crop X -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟪 option crop X:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etOptLeft" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="51" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etOptRight" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="98" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: option capture crop Y -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟪 option crop Y:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etOptTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="45" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etOptBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="65" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: OCR question crop X -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟨 OCR question X:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etQLeft" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="2" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etQRight" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="98" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: OCR question crop Y -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟨 OCR question Y:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etQTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="30" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etQBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="44" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: dots count crop X -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="4dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟦 dots count X:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etDotsLeft" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="10" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etDotsRight" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="90" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: dots count crop Y -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="12dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟦 dots count Y:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etDotsTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="70" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etDotsBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="74" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
         <!-- Calib buttons -->

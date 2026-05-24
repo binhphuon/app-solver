@@ -46,4 +46,6 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // OCR — đọc text câu hỏi từ ảnh captcha (FunCaptcha render trong SurfaceView nên accessibility không đọc được)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
