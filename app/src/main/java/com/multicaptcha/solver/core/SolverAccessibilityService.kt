@@ -2,8 +2,17 @@ package com.multicaptcha.solver.core
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import kotlin.concurrent.thread
 
 /**
  * Accessibility Service để đọc UI của các floating window FunCaptcha.
@@ -16,7 +25,10 @@ import android.view.accessibility.AccessibilityNodeInfo
 class SolverAccessibilityService : AccessibilityService() {
 
     companion object {
-        private const val TAG = "AccessibilitySvc"
+        private const val TAG       = "AccessibilitySvc"
+        private const val CHANNEL   = "a11y_channel"
+        private const val NOTIF_ID  = 42
+        const val ACTION_DUMP       = "com.multicaptcha.DUMP_A11Y"
 
         @Volatile private var instance: SolverAccessibilityService? = null
 
@@ -177,15 +189,31 @@ class SolverAccessibilityService : AccessibilityService() {
 
     // ── Service lifecycle ────────────────────────────────────────
 
+    private val dumpReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_DUMP) {
+                DebugLogger.start()
+                DebugLogger.i(TAG, "Dump triggered via notification")
+                thread { dumpAllWindows() }
+            }
+        }
+    }
+
     override fun onServiceConnected() {
         instance = this
-        // Đảm bảo service có quyền đọc tất cả windows
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.flags = info.flags or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         serviceInfo = info
         DebugLogger.i(TAG, "AccessibilityService connected ✓")
+
+        // Đăng ký BroadcastReceiver nội bộ
+        registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP),
+            Context.RECEIVER_NOT_EXPORTED)
+
+        // Hiển thị persistent notification với nút Dump
+        showDumpNotification()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -196,7 +224,42 @@ class SolverAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
+        try { unregisterReceiver(dumpReceiver) } catch (_: Exception) {}
+        getSystemService(NotificationManager::class.java)?.cancel(NOTIF_ID)
         DebugLogger.w(TAG, "AccessibilityService destroyed")
         super.onDestroy()
+    }
+
+    // ── Notification với nút Dump ────────────────────────────────
+
+    private fun showDumpNotification() {
+        val nm = getSystemService(NotificationManager::class.java) ?: return
+
+        // Tạo channel (idempotent)
+        val ch = NotificationChannel(CHANNEL, "A11y Debug", NotificationManager.IMPORTANCE_LOW)
+        ch.description = "Nút dump accessibility tree để debug"
+        nm.createNotificationChannel(ch)
+
+        // PendingIntent gửi broadcast → dumpReceiver xử lý (không mở app)
+        val pi = PendingIntent.getBroadcast(
+            this, 0,
+            Intent(ACTION_DUMP).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notif = Notification.Builder(this, CHANNEL)
+            .setContentTitle("MultiCaptcha Accessibility ✓")
+            .setContentText("Service đang chạy — bấm nút để dump window tree")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .addAction(
+                Notification.Action.Builder(
+                    null, "📋 Dump A11y Tree", pi
+                ).build()
+            )
+            .setOngoing(true)
+            .build()
+
+        nm.notify(NOTIF_ID, notif)
+        DebugLogger.i(TAG, "Dump notification shown")
     }
 }
