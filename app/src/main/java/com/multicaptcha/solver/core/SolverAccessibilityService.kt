@@ -194,8 +194,22 @@ class SolverAccessibilityService : AccessibilityService() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             if (intent?.action == ACTION_DUMP) {
                 DebugLogger.start()
-                DebugLogger.i(TAG, "Dump triggered via notification")
-                thread { dumpAllWindows() }
+                DebugLogger.i(TAG, "Dump triggered — chờ 5s để user đóng notification shade...")
+
+                // Đóng notification shade qua root + đợi 5s để user mở/focus floating windows
+                try {
+                    RootShell.execSilent("cmd statusbar collapse")
+                } catch (_: Exception) {}
+
+                thread {
+                    // Đếm ngược trong log để user biết khi nào dump chạy
+                    for (sec in 5 downTo 1) {
+                        DebugLogger.i(TAG, "Dump in ${sec}s...")
+                        Thread.sleep(1000)
+                    }
+                    DebugLogger.i(TAG, "Dumping NOW")
+                    dumpAllWindows()
+                }
             }
         }
     }
@@ -274,7 +288,7 @@ class SolverAccessibilityService : AccessibilityService() {
 
         val notif = Notification.Builder(this, CHANNEL)
             .setContentTitle("MultiCaptcha Accessibility ✓")
-            .setContentText("Service đang chạy — bấm nút để dump window tree")
+            .setContentText("Bấm Dump → có 5s để mở floating windows trước khi dump chạy")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .addAction(
                 Notification.Action.Builder(
