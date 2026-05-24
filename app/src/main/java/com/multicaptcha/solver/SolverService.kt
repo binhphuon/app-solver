@@ -302,6 +302,9 @@ class SolverService : Service() {
         const val ACTION_STOP    = "com.multicaptcha.STOP"
         const val EXTRA_API_KEY  = "api_key"
         const val EXTRA_PACKAGES = "packages"
+
+        /** Default packages dùng cho nút Start trong notification */
+        val DEFAULT_PACKAGES = arrayListOf("a.baba", "a.dcdc", "a.fefe")
         private const val POLL_INTERVAL_MS    = 1500L
         private const val IDLE_DISMISS_EVERY  = 12   // dismiss sau 12 loop IDLE (~18s)
     }

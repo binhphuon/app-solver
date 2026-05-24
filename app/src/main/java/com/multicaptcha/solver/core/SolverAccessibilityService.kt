@@ -26,10 +26,12 @@ import kotlin.concurrent.thread
 class SolverAccessibilityService : AccessibilityService() {
 
     companion object {
-        private const val TAG       = "AccessibilitySvc"
-        private const val CHANNEL   = "a11y_channel"
-        private const val NOTIF_ID  = 42
-        const val ACTION_DUMP       = "com.multicaptcha.DUMP_A11Y"
+        private const val TAG          = "AccessibilitySvc"
+        private const val CHANNEL      = "a11y_channel"
+        private const val NOTIF_ID     = 42
+        const val ACTION_DUMP          = "com.multicaptcha.DUMP_A11Y"
+        const val ACTION_START_SOLVER  = "com.multicaptcha.NOTIF_START"
+        const val ACTION_STOP_SOLVER   = "com.multicaptcha.NOTIF_STOP"
 
         @Volatile private var instance: SolverAccessibilityService? = null
 
@@ -190,27 +192,73 @@ class SolverAccessibilityService : AccessibilityService() {
 
     // ── Service lifecycle ────────────────────────────────────────
 
-    private val dumpReceiver = object : BroadcastReceiver() {
+    private val notifReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
-            if (intent?.action == ACTION_DUMP) {
-                DebugLogger.start()
-                DebugLogger.i(TAG, "Dump triggered — chờ 5s để user đóng notification shade...")
-
-                // Đóng notification shade qua root + đợi 5s để user mở/focus floating windows
-                try {
-                    RootShell.execSilent("cmd statusbar collapse")
-                } catch (_: Exception) {}
-
-                thread {
-                    // Đếm ngược trong log để user biết khi nào dump chạy
-                    for (sec in 5 downTo 1) {
-                        DebugLogger.i(TAG, "Dump in ${sec}s...")
-                        Thread.sleep(1000)
-                    }
-                    DebugLogger.i(TAG, "Dumping NOW")
-                    dumpAllWindows()
-                }
+            when (intent?.action) {
+                ACTION_DUMP -> handleDump()
+                ACTION_START_SOLVER -> handleStartSolver()
+                ACTION_STOP_SOLVER  -> handleStopSolver()
             }
+        }
+
+        private fun handleDump() {
+            DebugLogger.start()
+            DebugLogger.i(TAG, "Dump triggered — chờ 5s để user đóng notification shade...")
+            try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
+            thread {
+                for (sec in 5 downTo 1) {
+                    DebugLogger.i(TAG, "Dump in ${sec}s...")
+                    Thread.sleep(1000)
+                }
+                DebugLogger.i(TAG, "Dumping NOW")
+                dumpAllWindows()
+            }
+        }
+
+        private fun handleStartSolver() {
+            DebugLogger.start()
+            // Đọc API key đã lưu qua MainActivity
+            val prefs  = getSharedPreferences("mcs_prefs", Context.MODE_PRIVATE)
+            val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
+
+            if (apiKey.isBlank()) {
+                DebugLogger.e(TAG, "Notif Start: API key chưa được nhập — mở app vào nhập")
+                android.widget.Toast.makeText(this@SolverAccessibilityService,
+                    "⚠ Mở app nhập API key trước!", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+            if (com.multicaptcha.solver.SolverConfig.captchaOther.isBlank()) {
+                // OCR sẽ là primary, nhưng vẫn cảnh báo nhẹ
+                DebugLogger.w(TAG, "Notif Start: captchaOther rỗng (OCR là primary nên có thể chạy)")
+            }
+
+            try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
+
+            DebugLogger.i(TAG, "Notif Start: launching SolverService")
+            val intent = Intent(this@SolverAccessibilityService,
+                com.multicaptcha.solver.SolverService::class.java).apply {
+                action = com.multicaptcha.solver.SolverService.ACTION_START
+                putExtra(com.multicaptcha.solver.SolverService.EXTRA_API_KEY, apiKey)
+                putStringArrayListExtra(
+                    com.multicaptcha.solver.SolverService.EXTRA_PACKAGES,
+                    com.multicaptcha.solver.SolverService.DEFAULT_PACKAGES
+                )
+            }
+            startForegroundService(intent)
+            android.widget.Toast.makeText(this@SolverAccessibilityService,
+                "▶ Solver đang khởi động...", android.widget.Toast.LENGTH_SHORT).show()
+        }
+
+        private fun handleStopSolver() {
+            DebugLogger.i(TAG, "Notif Stop: stopping SolverService")
+            try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
+            val intent = Intent(this@SolverAccessibilityService,
+                com.multicaptcha.solver.SolverService::class.java).apply {
+                action = com.multicaptcha.solver.SolverService.ACTION_STOP
+            }
+            startService(intent)
+            android.widget.Toast.makeText(this@SolverAccessibilityService,
+                "■ Solver đã dừng", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -235,23 +283,28 @@ class SolverAccessibilityService : AccessibilityService() {
             DebugLogger.e(TAG, "serviceInfo setup failed", e)
         }
 
-        // Đăng ký BroadcastReceiver nội bộ (API 33+ yêu cầu export flag tường minh)
+        // Đăng ký BroadcastReceiver nội bộ cho Dump/Start/Stop (API 33+ yêu cầu export flag)
         try {
+            val filter = IntentFilter().apply {
+                addAction(ACTION_DUMP)
+                addAction(ACTION_START_SOLVER)
+                addAction(ACTION_STOP_SOLVER)
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP), Context.RECEIVER_NOT_EXPORTED)
+                registerReceiver(notifReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
             } else {
                 @Suppress("UnspecifiedRegisterReceiverFlag")
-                registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP))
+                registerReceiver(notifReceiver, filter)
             }
         } catch (e: Exception) {
             DebugLogger.e(TAG, "registerReceiver failed", e)
         }
 
-        // Hiển thị persistent notification với nút Dump
+        // Hiển thị persistent notification với nút Start / Stop / Dump
         try {
-            showDumpNotification()
+            showControlNotification()
         } catch (e: Exception) {
-            DebugLogger.e(TAG, "showDumpNotification failed", e)
+            DebugLogger.e(TAG, "showControlNotification failed", e)
         }
     }
 
@@ -263,42 +316,44 @@ class SolverAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         instance = null
-        try { unregisterReceiver(dumpReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(notifReceiver) } catch (_: Exception) {}
         getSystemService(NotificationManager::class.java)?.cancel(NOTIF_ID)
         DebugLogger.w(TAG, "AccessibilityService destroyed")
         super.onDestroy()
     }
 
-    // ── Notification với nút Dump ────────────────────────────────
+    // ── Persistent control notification (Start / Stop / Dump) ───
 
-    private fun showDumpNotification() {
+    private fun showControlNotification() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
 
         // Tạo channel (idempotent)
-        val ch = NotificationChannel(CHANNEL, "A11y Debug", NotificationManager.IMPORTANCE_LOW)
-        ch.description = "Nút dump accessibility tree để debug"
+        val ch = NotificationChannel(CHANNEL, "Solver Controls", NotificationManager.IMPORTANCE_LOW)
+        ch.description = "Nút Start / Stop / Dump điều khiển nhanh từ thanh thông báo"
         nm.createNotificationChannel(ch)
 
-        // PendingIntent gửi broadcast → dumpReceiver xử lý (không mở app)
-        val pi = PendingIntent.getBroadcast(
-            this, 0,
-            Intent(ACTION_DUMP).setPackage(packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        fun makePi(action: String, code: Int): PendingIntent =
+            PendingIntent.getBroadcast(
+                this, code,
+                Intent(action).setPackage(packageName),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+        val piStart = makePi(ACTION_START_SOLVER, 1)
+        val piStop  = makePi(ACTION_STOP_SOLVER,  2)
+        val piDump  = makePi(ACTION_DUMP,         3)
 
         val notif = Notification.Builder(this, CHANNEL)
-            .setContentTitle("MultiCaptcha Accessibility ✓")
-            .setContentText("Bấm Dump → có 5s để mở floating windows trước khi dump chạy")
+            .setContentTitle("MultiCaptcha Solver ✓")
+            .setContentText("Start / Stop solver • Dump A11y để debug")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .addAction(
-                Notification.Action.Builder(
-                    null, "📋 Dump A11y Tree", pi
-                ).build()
-            )
+            .addAction(Notification.Action.Builder(null, "▶ Start", piStart).build())
+            .addAction(Notification.Action.Builder(null, "■ Stop",  piStop).build())
+            .addAction(Notification.Action.Builder(null, "📋 Dump", piDump).build())
             .setOngoing(true)
             .build()
 
         nm.notify(NOTIF_ID, notif)
-        DebugLogger.i(TAG, "Dump notification shown")
+        DebugLogger.i(TAG, "Control notification shown (Start/Stop/Dump)")
     }
 }

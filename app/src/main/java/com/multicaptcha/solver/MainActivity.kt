@@ -20,12 +20,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    // Packages theo thứ tự slot: trái → phải
-    private val TARGET_PACKAGES = arrayListOf(
-        "a.baba",
-        "a.dcdc",
-        "a.fefe"
-    )
+    // Packages theo thứ tự slot: trái → phải (dùng chung với notification Start)
+    private val TARGET_PACKAGES get() = SolverService.DEFAULT_PACKAGES
 
     private val PREFS_NAME = "mcs_prefs"
     private val KEY_API    = "api_key"
