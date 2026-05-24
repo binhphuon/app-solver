@@ -82,10 +82,6 @@
             android:layout_height="wrap_content" android:text="🗑 Xóa log file"
             android:backgroundTint="#9E9E9E" android:layout_marginTop="8dp"/>
 
-        <Button android:id="@+id/btnDumpA11y" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="🔍 Dump Accessibility tree → log"
-            android:backgroundTint="#4527A0" android:layout_marginTop="4dp"/>
-
         <!-- Calibration Divider -->
         <View android:layout_width="match_parent" android:layout_height="1dp"
             android:background="#1565C0" android:layout_marginTop="16dp" android:layout_marginBottom="8dp"/>

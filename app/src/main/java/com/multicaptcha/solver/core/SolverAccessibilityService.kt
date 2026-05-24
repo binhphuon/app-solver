@@ -13,7 +13,6 @@ import android.content.IntentFilter
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import kotlin.concurrent.thread
 
 /**
  * Accessibility Service để đọc UI của các floating window FunCaptcha.
@@ -29,58 +28,12 @@ class SolverAccessibilityService : AccessibilityService() {
         private const val TAG          = "AccessibilitySvc"
         private const val CHANNEL      = "a11y_channel"
         private const val NOTIF_ID     = 42
-        const val ACTION_DUMP          = "com.multicaptcha.DUMP_A11Y"
         const val ACTION_START_SOLVER  = "com.multicaptcha.NOTIF_START"
         const val ACTION_STOP_SOLVER   = "com.multicaptcha.NOTIF_STOP"
 
         @Volatile private var instance: SolverAccessibilityService? = null
 
         fun isAvailable(): Boolean = instance != null
-
-        /**
-         * Dump toàn bộ window tree ra DebugLogger để kiểm tra xem accessibility
-         * có đọc được nội dung floating windows không.
-         */
-        fun dumpAllWindows() {
-            val svc = instance ?: run {
-                DebugLogger.e(TAG, "dumpAllWindows: service not connected!")
-                return
-            }
-            val windows = svc.windows ?: run {
-                DebugLogger.e(TAG, "dumpAllWindows: windows = null")
-                return
-            }
-            DebugLogger.sep("ACCESSIBILITY WINDOW DUMP (${windows.size} windows)")
-            windows.forEachIndexed { wi, window ->
-                val root = window.root
-                val pkg  = root?.packageName ?: "null"
-                DebugLogger.i(TAG, "Window[$wi] pkg=$pkg type=${window.type} " +
-                    "layer=${window.layer} focused=${window.isFocused}")
-                if (root != null) {
-                    dumpNode(root, depth = 0, maxDepth = 6)
-                    root.recycle()
-                } else {
-                    DebugLogger.w(TAG, "  root is null")
-                }
-            }
-            DebugLogger.sep("END DUMP")
-        }
-
-        private fun dumpNode(node: AccessibilityNodeInfo, depth: Int, maxDepth: Int) {
-            if (depth > maxDepth) return
-            val indent  = "  ".repeat(depth)
-            val cls     = node.className?.toString()?.substringAfterLast('.') ?: "?"
-            val resId   = node.viewIdResourceName ?: ""
-            val text    = node.text?.toString()?.take(60) ?: ""
-            val desc    = node.contentDescription?.toString()?.take(40) ?: ""
-            DebugLogger.d(TAG, "$indent[$cls] id=\"$resId\" text=\"$text\" desc=\"$desc\" " +
-                "focusable=${node.isFocusable} children=${node.childCount}")
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                dumpNode(child, depth + 1, maxDepth)
-                child.recycle()
-            }
-        }
 
         /**
          * Đọc câu hỏi của FunCaptcha từ UI.
@@ -195,23 +148,8 @@ class SolverAccessibilityService : AccessibilityService() {
     private val notifReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             when (intent?.action) {
-                ACTION_DUMP -> handleDump()
                 ACTION_START_SOLVER -> handleStartSolver()
                 ACTION_STOP_SOLVER  -> handleStopSolver()
-            }
-        }
-
-        private fun handleDump() {
-            DebugLogger.start()
-            DebugLogger.i(TAG, "Dump triggered — chờ 5s để user đóng notification shade...")
-            try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
-            thread {
-                for (sec in 5 downTo 1) {
-                    DebugLogger.i(TAG, "Dump in ${sec}s...")
-                    Thread.sleep(1000)
-                }
-                DebugLogger.i(TAG, "Dumping NOW")
-                dumpAllWindows()
             }
         }
 
@@ -286,7 +224,6 @@ class SolverAccessibilityService : AccessibilityService() {
         // Đăng ký BroadcastReceiver nội bộ cho Dump/Start/Stop (API 33+ yêu cầu export flag)
         try {
             val filter = IntentFilter().apply {
-                addAction(ACTION_DUMP)
                 addAction(ACTION_START_SOLVER)
                 addAction(ACTION_STOP_SOLVER)
             }
@@ -341,19 +278,17 @@ class SolverAccessibilityService : AccessibilityService() {
 
         val piStart = makePi(ACTION_START_SOLVER, 1)
         val piStop  = makePi(ACTION_STOP_SOLVER,  2)
-        val piDump  = makePi(ACTION_DUMP,         3)
 
         val notif = Notification.Builder(this, CHANNEL)
             .setContentTitle("MultiCaptcha Solver ✓")
-            .setContentText("Start / Stop solver • Dump A11y để debug")
+            .setContentText("Start / Stop solver từ thanh thông báo")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
             .addAction(Notification.Action.Builder(null, "▶ Start", piStart).build())
             .addAction(Notification.Action.Builder(null, "■ Stop",  piStop).build())
-            .addAction(Notification.Action.Builder(null, "📋 Dump", piDump).build())
             .setOngoing(true)
             .build()
 
         nm.notify(NOTIF_ID, notif)
-        DebugLogger.i(TAG, "Control notification shown (Start/Stop/Dump)")
+        DebugLogger.i(TAG, "Control notification shown (Start/Stop)")
     }
 }
