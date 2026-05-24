@@ -16,7 +16,7 @@ enum class SlotState {
 }
 
 class FuncaptchaSolver(
-    private val slot: SlotConfig,
+    val slot: SlotConfig,
     private val apiClient: OmoApiClient
 ) {
     private val TAG = "Solver[${slot.index}]"

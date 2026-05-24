@@ -129,7 +129,7 @@ class SolverService : Service() {
         var loopCount   = 0
         var solvedTotal = 0
 
-        while (isActive) {
+        while (currentCoroutineContext().isActive) {
             val loopStart = System.currentTimeMillis()
             loopCount++
 
@@ -149,7 +149,7 @@ class SolverService : Service() {
                 var activeCount = 0
 
                 for (solver in solvers) {
-                    if (!isActive) break
+                    if (!currentCoroutineContext().isActive) break
 
                     val slotBmp = ScreenCapture.cropSlot(screenshot, solver.slot)
                     val state   = solver.detectState(slotBmp)
