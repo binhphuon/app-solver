@@ -62,6 +62,13 @@ object RootShell {
         val filtered = entries.filter { !it.startsWith("$packageName/") }
 
         val newList = (filtered + componentName).joinToString(":")
+
+        // 2-step write để force ContentObserver fire ngay cả khi entry đã tồn tại từ trước:
+        //   1. Ghi list KHÔNG có service của ta (briefly disconnect chỉ service mình, không đụng services khác như MacroDroid)
+        //   2. Ghi list ĐẦY ĐỦ → AccessibilityManagerService rebind service ta
+        val withoutOurs = if (filtered.isEmpty()) "\"\"" else filtered.joinToString(":")
+        exec("settings put secure enabled_accessibility_services $withoutOurs")
+        Thread.sleep(300)
         exec("settings put secure enabled_accessibility_services $newList")
         exec("settings put secure accessibility_enabled 1")
         Log.i(TAG, "Accessibility granted: $componentName")

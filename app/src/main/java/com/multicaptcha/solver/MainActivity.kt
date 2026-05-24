@@ -58,8 +58,9 @@ class MainActivity : AppCompatActivity() {
                     com.multicaptcha.solver.core.SolverAccessibilityService::class.java.name
                 )
 
-                // Retry loop: đợi tối đa 10 giây cho service bind
-                val deadline = System.currentTimeMillis() + 10_000L
+                // Retry loop: đợi tối đa 20 giây cho service bind
+                // (sau khi toggle settings, AMS cần vài giây để re-evaluate)
+                val deadline = System.currentTimeMillis() + 20_000L
                 while (System.currentTimeMillis() < deadline) {
                     Thread.sleep(500)
                     if (com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) break

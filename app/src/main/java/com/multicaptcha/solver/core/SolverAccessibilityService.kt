@@ -201,24 +201,44 @@ class SolverAccessibilityService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        // instance được set TRƯỚC MỌI THỨ — ngay cả khi phần sau crash, isAvailable() vẫn đúng
         instance = this
-        val info = serviceInfo ?: AccessibilityServiceInfo()
-        info.flags = info.flags or
-                AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
-                AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-        serviceInfo = info
-        DebugLogger.i(TAG, "AccessibilityService connected ✓")
+
+        // Ghi file ngay để biết onServiceConnected() có được gọi không
+        try {
+            java.io.File("/storage/emulated/0/Download/a11y_connected.txt")
+                .writeText("onServiceConnected at ${System.currentTimeMillis()}\npkg=$packageName\n")
+        } catch (_: Exception) {}
+
+        try {
+            val info = serviceInfo ?: AccessibilityServiceInfo()
+            info.flags = info.flags or
+                    AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
+                    AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            serviceInfo = info
+            DebugLogger.i(TAG, "AccessibilityService connected ✓")
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "serviceInfo setup failed", e)
+        }
 
         // Đăng ký BroadcastReceiver nội bộ (API 33+ yêu cầu export flag tường minh)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP), Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP))
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP), Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                registerReceiver(dumpReceiver, IntentFilter(ACTION_DUMP))
+            }
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "registerReceiver failed", e)
         }
 
         // Hiển thị persistent notification với nút Dump
-        showDumpNotification()
+        try {
+            showDumpNotification()
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "showDumpNotification failed", e)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
