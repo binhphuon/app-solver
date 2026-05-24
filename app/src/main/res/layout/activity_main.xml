@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center_horizontal">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="MultiCaptcha Solver"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="32dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="OMOcaptcha API Key"
+        android:textSize="14sp"
+        android:layout_marginBottom="8dp"/>
+
+    <EditText
+        android:id="@+id/etApiKey"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="PKG_..."
+        android:inputType="text"
+        android:singleLine="true"
+        android:layout_marginBottom="24dp"/>
+
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Chưa khởi động"
+        android:textSize="14sp"
+        android:layout_marginBottom="32dp"/>
+
+    <Button
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="▶ Bắt đầu giải captcha"
+        android:layout_marginBottom="12dp"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="■ Dừng"
+        android:backgroundTint="#F44336"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#DDDDDD"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="12dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Sắp xếp windows"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <Button
+        android:id="@+id/btnLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⊞ Xếp 3 windows (landscape)"
+        android:backgroundTint="#1565C0"/>
+
+    <Button
+        android:id="@+id/btnReadPos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔍 Đọc vị trí hiện tại"
+        android:backgroundTint="#37474F"
+        android:layout_marginTop="6dp"/>
+
+    <TextView
+        android:id="@+id/tvPosInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="11sp"
+        android:textColor="#37474F"
+        android:fontFamily="monospace"
+        android:layout_marginTop="6dp"
+        android:padding="8dp"
+        android:background="#F5F5F5"/>
+
+    <Button
+        android:id="@+id/btnClearLog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🗑 Xóa log file"
+        android:backgroundTint="#9E9E9E"
+        android:layout_marginTop="12dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Log: /storage/emulated/0/Download/solver_debug.txt"
+        android:textSize="11sp"
+        android:textColor="#888888"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Slots (trái → phải):\n  Slot 0: a.baba\n  Slot 1: a.dcdc\n  Slot 2: a.fefe"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:layout_marginTop="16dp"/>
+
+</LinearLayout>
