@@ -88,6 +88,19 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Đã dừng!", Toast.LENGTH_SHORT).show()
         }
 
+        // ── Dump accessibility tree ───────────────────────────────
+        binding.btnDumpA11y.setOnClickListener {
+            if (!com.multicaptcha.solver.core.SolverAccessibilityService.isAvailable()) {
+                Toast.makeText(this, "⚠️ Accessibility chưa sẵn sàng!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            com.multicaptcha.solver.core.DebugLogger.start()
+            thread {
+                com.multicaptcha.solver.core.SolverAccessibilityService.dumpAllWindows()
+            }
+            Toast.makeText(this, "Đã dump → xem solver_debug.txt", Toast.LENGTH_SHORT).show()
+        }
+
         // ── Xóa log ──────────────────────────────────────────────
         binding.btnClearLog.setOnClickListener {
             File("/storage/emulated/0/Download/solver_debug.txt").delete()

@@ -23,6 +23,51 @@ class SolverAccessibilityService : AccessibilityService() {
         fun isAvailable(): Boolean = instance != null
 
         /**
+         * Dump toàn bộ window tree ra DebugLogger để kiểm tra xem accessibility
+         * có đọc được nội dung floating windows không.
+         */
+        fun dumpAllWindows() {
+            val svc = instance ?: run {
+                DebugLogger.e(TAG, "dumpAllWindows: service not connected!")
+                return
+            }
+            val windows = svc.windows ?: run {
+                DebugLogger.e(TAG, "dumpAllWindows: windows = null")
+                return
+            }
+            DebugLogger.sep("ACCESSIBILITY WINDOW DUMP (${windows.size} windows)")
+            windows.forEachIndexed { wi, window ->
+                val root = window.root
+                val pkg  = root?.packageName ?: "null"
+                DebugLogger.i(TAG, "Window[$wi] pkg=$pkg type=${window.type} " +
+                    "layer=${window.layer} focused=${window.isFocused}")
+                if (root != null) {
+                    dumpNode(root, depth = 0, maxDepth = 6)
+                    root.recycle()
+                } else {
+                    DebugLogger.w(TAG, "  root is null")
+                }
+            }
+            DebugLogger.sep("END DUMP")
+        }
+
+        private fun dumpNode(node: AccessibilityNodeInfo, depth: Int, maxDepth: Int) {
+            if (depth > maxDepth) return
+            val indent  = "  ".repeat(depth)
+            val cls     = node.className?.toString()?.substringAfterLast('.') ?: "?"
+            val resId   = node.viewIdResourceName ?: ""
+            val text    = node.text?.toString()?.take(60) ?: ""
+            val desc    = node.contentDescription?.toString()?.take(40) ?: ""
+            DebugLogger.d(TAG, "$indent[$cls] id=\"$resId\" text=\"$text\" desc=\"$desc\" " +
+                "focusable=${node.isFocusable} children=${node.childCount}")
+            for (i in 0 until node.childCount) {
+                val child = node.getChild(i) ?: continue
+                dumpNode(child, depth + 1, maxDepth)
+                child.recycle()
+            }
+        }
+
+        /**
          * Đọc câu hỏi của FunCaptcha từ UI.
          * Tìm node có text dài (>20 ký tự) trong cửa sổ thuộc [pkg].
          * Priority: node focusable trong FunCaptcha view → fallback bất kỳ text dài.
