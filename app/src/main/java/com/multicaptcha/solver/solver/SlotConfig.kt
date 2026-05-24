@@ -45,6 +45,17 @@ data class SlotConfig(
         (height * SolverConfig.matchCropBot   / 100f).toInt()
     )
 
+    /**
+     * Ảnh option hiện tại (nửa phải carousel).
+     * X bắt đầu ngay sau reference crop, cùng Y range.
+     */
+    val currentOptionRect: Rect get() = Rect(
+        (width  * (SolverConfig.matchCropRight + 2f) / 100f).toInt(),
+        (height * SolverConfig.matchCropTop / 100f).toInt(),
+        (width  * 0.98f).toInt(),
+        (height * SolverConfig.matchCropBot / 100f).toInt()
+    )
+
     /** Toàn bộ vùng challenge (cả 2 ảnh) — để check hasContent */
     val challengeImageRect: Rect get() = Rect(
         (width  * 0.02f).toInt(),

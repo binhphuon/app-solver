@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         binding.etApiKey.setText(prefs.getString(KEY_API, ""))
+        binding.etCaptchaOther.setText(SolverConfig.captchaOther)
 
         // Check root
         binding.tvStatus.text = if (RootShell.hasRoot()) "✅ Root OK" else "⚠️ Chưa root!"
@@ -44,7 +45,15 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Nhập API key trước!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            val captchaOther = binding.etCaptchaOther.text.toString().trim()
+            if (captchaOther.isBlank()) {
+                Toast.makeText(this, "⚠️ Chưa nhập captcha question text!", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
             prefs.edit().putString(KEY_API, apiKey).apply()
+
+            // Lưu captcha question text
+            SolverConfig.captchaOther = binding.etCaptchaOther.text.toString().trim()
 
             startForegroundService(Intent(this, SolverService::class.java).apply {
                 action = SolverService.ACTION_START

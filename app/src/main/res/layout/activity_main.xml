@@ -24,6 +24,16 @@
             android:hint="OMOcaptcha API Key (PKG_...)"
             android:inputType="text"
             android:singleLine="true"
+            android:layout_marginBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/etCaptchaOther"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Captcha question text (field &quot;other&quot;)"
+            android:inputType="textMultiLine"
+            android:minLines="2"
+            android:maxLines="4"
             android:layout_marginBottom="12dp"/>
 
         <TextView

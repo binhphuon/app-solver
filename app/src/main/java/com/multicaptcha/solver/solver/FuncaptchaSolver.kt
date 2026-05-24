@@ -27,6 +27,9 @@ class FuncaptchaSolver(
     // true sau khi handleStart() được gọi — ngăn solvePuzzle() chạy khi window chưa mở
     private var hasSeenStart: Boolean = false
 
+    // Vị trí carousel hiện tại (1-based, reset khi puzzle mới load)
+    private var carouselPos: Int = 1
+
     // ── Detect state ─────────────────────────────────────────────
 
     fun detectState(slotBitmap: Bitmap): SlotState {
@@ -80,6 +83,7 @@ class FuncaptchaSolver(
 
         TouchInjector.tapInSlot(slot, slot.startButtonRelX, slot.startButtonRelY, "Start Puzzle")
         hasSeenStart = true
+        carouselPos  = 1          // puzzle mới → carousel reset về position 1
         currentState = SlotState.PUZZLE_ACTIVE
 
         OverlayManager.updateSlotStep(slot.index, "Chờ puzzle load...")
@@ -93,12 +97,70 @@ class FuncaptchaSolver(
         DebugLogger.sep("Slot[${slot.index}] SOLVE PUZZLE")
         currentState = SlotState.VERIFYING
 
-        // 1. Crop ảnh "Match This!"
-        OverlayManager.updateSlotStep(slot.index, "Crop ảnh Match This...")
-        DebugLogger.d(TAG, "Cropping Match This! image — rect=${slot.matchThisImageRect}")
-        val slotBmp  = ScreenCapture.cropSlot(fullScreenshot, slot)
-        val refBmp   = ScreenCapture.cropRegion(slotBmp, slot.matchThisImageRect)
-        val imageB64 = ScreenCapture.toBase64(refBmp)
+        // ── 0. Reset carousel về position 1 nếu cần ────────────
+        if (carouselPos != 1) {
+            // Từ pos N, click phải (7 - N) % 6 lần = về pos 1
+            val resetClicks = (7 - carouselPos) % TOTAL_OPTIONS
+            DebugLogger.d(TAG, "Carousel at pos $carouselPos — resetting to 1 ($resetClicks clicks)")
+            OverlayManager.updateSlotStep(slot.index, "Reset carousel về pos 1...")
+            repeat(resetClicks) {
+                TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ reset")
+                delay(ARROW_DELAY_MS)
+            }
+            carouselPos = 1
+        }
+
+        // ── 1. Crop reference image từ screenshot hiện tại ──────
+        val slotBmpFirst = ScreenCapture.cropSlot(fullScreenshot, slot)
+        val refBmp       = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
+        DebugLogger.d(TAG, "Reference rect=${slot.matchThisImageRect}")
+
+        // ── 2. Capture tất cả options bằng cách scroll (số lượng dynamic) ──
+        val optionBitmaps = mutableListOf<Bitmap>()
+
+        // Option 1: từ screenshot ban đầu (không cần chụp lại)
+        val firstOption = ScreenCapture.cropRegion(slotBmpFirst, slot.currentOptionRect)
+        optionBitmaps.add(firstOption)
+        DebugLogger.d(TAG, "Captured option 1 (from existing screenshot)")
+
+        // Options 2..MAX: scroll → chụp → kiểm tra duplicate với option 1
+        // Khi ảnh mới ≈ ảnh đầu tiên → carousel đã quay vòng → dừng
+        for (i in 2..MAX_OPTIONS) {
+            OverlayManager.updateSlotStep(slot.index, "Chụp option $i...")
+            TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ capture $i")
+            carouselPos = i
+            delay(CAPTURE_DELAY_MS)
+
+            val shot = ScreenCapture.capture()
+            if (shot == null) {
+                DebugLogger.w(TAG, "Screenshot null at option $i — using previous")
+                optionBitmaps.add(optionBitmaps.last())
+                continue
+            }
+            val slotBmpI  = ScreenCapture.cropSlot(shot, slot)
+            val newOption = ScreenCapture.cropRegion(slotBmpI, slot.currentOptionRect)
+
+            // Detect wrap-around: ảnh mới giống ảnh đầu tiên → đã đủ
+            if (i > MIN_OPTIONS && ScreenCapture.areSimilar(newOption, firstOption)) {
+                DebugLogger.i(TAG, "Carousel wrapped at i=$i → total=${optionBitmaps.size} options")
+                // KHÔNG thêm ảnh trùng, carouselPos hiệu quả đã về 1
+                carouselPos = 1
+                break
+            }
+
+            optionBitmaps.add(newOption)
+            DebugLogger.d(TAG, "Captured option $i (total so far: ${optionBitmaps.size})")
+        }
+
+        val totalOptions = optionBitmaps.size
+        DebugLogger.i(TAG, "Captured $totalOptions options total")
+
+        // ── 3. Ghép ảnh: options ngang + reference bên dưới ─────
+        OverlayManager.updateSlotStep(slot.index, "Ghép $totalOptions ảnh...")
+        val optionsStrip = ScreenCapture.stitchHorizontal(optionBitmaps)
+        val combined     = ScreenCapture.stackVertical(optionsStrip, refBmp)
+        val imageB64     = ScreenCapture.toBase64Png(combined)   // PNG như OMO dùng
+        DebugLogger.d(TAG, "Combined image: ${combined.width}x${combined.height}")
 
         if (imageB64.isEmpty()) {
             DebugLogger.e(TAG, "imageBase64 is empty — cannot send to API")
@@ -107,9 +169,9 @@ class FuncaptchaSolver(
             return false
         }
 
-        // 2. Gửi API
+        // ── 4. Gửi API ──────────────────────────────────────────
         OverlayManager.updateSlot(slot.index, SlotState.VERIFYING, "Gửi API...")
-        DebugLogger.d(TAG, "Sending to omocaptcha API...")
+        DebugLogger.d(TAG, "Sending combined image to omocaptcha API...")
         val taskId = apiClient.createTask(imageB64, slotIdx = slot.index) ?: run {
             DebugLogger.apiError(slot.index, "createTask returned null")
             OverlayManager.updateSlotStep(slot.index, "Lỗi: createTask thất bại")
@@ -117,7 +179,7 @@ class FuncaptchaSolver(
             return false
         }
 
-        // 3. Poll kết quả
+        // ── 5. Poll kết quả ─────────────────────────────────────
         OverlayManager.updateSlotStep(slot.index, "Chờ kết quả API...")
         val result = apiClient.getTaskResult(taskId, slotIdx = slot.index) ?: run {
             DebugLogger.apiError(slot.index, "getTaskResult returned null — taskId=$taskId")
@@ -126,25 +188,27 @@ class FuncaptchaSolver(
             return false
         }
 
-        // 4. Tính số lần click mũi tên (index 1-based → clicks = index-1)
-        val clickCount = (result.index - 1).coerceAtLeast(0)
-        DebugLogger.d(TAG, "Answer: index=${result.index} → right arrow clicks=$clickCount")
+        // ── 6. Navigate đến đúng position ───────────────────────
+        // carouselPos hiện tại: nếu detected wrap → 1, nếu hit MAX_OPTIONS → MAX_OPTIONS
+        // Clicks cần = (index - carouselPos + totalOptions) % totalOptions
+        val clicksNeeded = ((result.index - carouselPos + totalOptions) % totalOptions)
+        DebugLogger.d(TAG, "Answer: index=${result.index}, currentPos=$carouselPos, total=$totalOptions → $clicksNeeded clicks needed")
 
-        // 5. Click mũi tên phải
-        if (clickCount == 0) {
-            DebugLogger.slotAction(slot.index, "index=1, không cần click mũi tên")
-            OverlayManager.updateSlotStep(slot.index, "Vị trí đúng, skip arrow")
+        if (clicksNeeded == 0) {
+            DebugLogger.slotAction(slot.index, "Đang ở đúng vị trí (pos=${result.index})")
+            OverlayManager.updateSlotStep(slot.index, "Đúng vị trí, không cần scroll")
         } else {
-            OverlayManager.updateSlot(slot.index, SlotState.PUZZLE_ACTIVE, "Click → ×$clickCount")
-            for (i in 1..clickCount) {
+            OverlayManager.updateSlot(slot.index, SlotState.PUZZLE_ACTIVE, "Navigate → ×$clicksNeeded")
+            for (i in 1..clicksNeeded) {
                 if (i > 1) delay(ARROW_DELAY_MS)
-                TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ arrow")
-                DebugLogger.arrowClick(slot.index, i, clickCount)
-                OverlayManager.updateSlotStep(slot.index, "→ arrow $i/$clickCount")
+                TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ nav $i/$clicksNeeded")
+                carouselPos = (carouselPos % totalOptions) + 1
+                DebugLogger.arrowClick(slot.index, i, clicksNeeded)
+                OverlayManager.updateSlotStep(slot.index, "→ $i/$clicksNeeded (pos=$carouselPos)")
             }
         }
 
-        // 6. Submit
+        // ── 7. Submit ────────────────────────────────────────────
         OverlayManager.updateSlotStep(slot.index, "Submit...")
         DebugLogger.d(TAG, "Waiting ${SUBMIT_DELAY_MS}ms before Submit...")
         delay(SUBMIT_DELAY_MS)
@@ -164,11 +228,15 @@ class FuncaptchaSolver(
         DebugLogger.d(TAG, "resetState SOLVED→IDLE")
         currentState = SlotState.IDLE
         hasSeenStart = false
+        carouselPos  = 1
     }
 
     companion object {
-        private const val GREEN_THRESHOLD = 0.06f
-        private const val ARROW_DELAY_MS  = 400L
-        private const val SUBMIT_DELAY_MS = 600L
+        private const val GREEN_THRESHOLD  = 0.06f
+        private const val ARROW_DELAY_MS   = 400L
+        private const val SUBMIT_DELAY_MS  = 600L
+        private const val CAPTURE_DELAY_MS = 650L   // chờ animation scroll trước khi chụp
+        private const val MIN_OPTIONS      = 3       // tối thiểu mới check duplicate
+        private const val MAX_OPTIONS      = 22      // giới hạn trên (FunCaptcha max ~20)
     }
 }

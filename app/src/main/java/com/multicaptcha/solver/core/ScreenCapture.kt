@@ -56,13 +56,54 @@ object ScreenCapture {
 
     // ── Encode ───────────────────────────────────────────────────
 
+    /** JPEG encode (dùng cho ảnh đơn lẻ debug) */
     fun toBase64(bmp: Bitmap, quality: Int = 85): String {
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, quality, out)
-        val bytes  = out.toByteArray()
-        val b64    = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        DebugLogger.d(TAG, "toBase64 quality=$quality → ${bytes.size}B → b64=${b64.length}chars")
+        val bytes = out.toByteArray()
+        val b64   = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        DebugLogger.d(TAG, "toBase64 JPEG quality=$quality → ${bytes.size}B → b64=${b64.length}chars")
         return b64
+    }
+
+    /** PNG encode — dùng khi gửi ảnh ghép lên API (lossless, OMO dùng PNG) */
+    fun toBase64Png(bmp: Bitmap): String {
+        val out = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        val bytes = out.toByteArray()
+        val b64   = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        DebugLogger.d(TAG, "toBase64 PNG → ${bytes.size}B → b64=${b64.length}chars")
+        return b64
+    }
+
+    /**
+     * So sánh 2 bitmap xem có giống nhau không (dùng để detect khi carousel quay lại position 1).
+     * Sample lưới 8x8 pixel, tính trung bình sai số màu.
+     * @return true nếu ảnh đủ giống (diff < threshold)
+     */
+    fun areSimilar(a: Bitmap, b: Bitmap, threshold: Double = 12.0): Boolean {
+        if (a.width < 4 || a.height < 4 || b.width < 4 || b.height < 4) return false
+        // Resize b về cùng kích thước a nếu khác size
+        val bScaled = if (a.width != b.width || a.height != b.height)
+            Bitmap.createScaledBitmap(b, a.width, a.height, false) else b
+        val stepX = maxOf(1, a.width  / 8)
+        val stepY = maxOf(1, a.height / 8)
+        var diffSum = 0.0
+        var count   = 0
+        for (x in 0 until a.width  step stepX) {
+            for (y in 0 until a.height step stepY) {
+                val pa = a.getPixel(x, y)
+                val pb = bScaled.getPixel(x, y)
+                val dr = ((pa shr 16 and 0xFF) - (pb shr 16 and 0xFF)).toDouble()
+                val dg = ((pa shr  8 and 0xFF) - (pb shr  8 and 0xFF)).toDouble()
+                val db = ((pa        and 0xFF) - (pb        and 0xFF)).toDouble()
+                diffSum += Math.sqrt(dr * dr + dg * dg + db * db)
+                count++
+            }
+        }
+        val avg = if (count > 0) diffSum / count else 999.0
+        DebugLogger.d(TAG, "areSimilar: avgDiff=${"%.1f".format(avg)} thr=$threshold → ${avg < threshold}")
+        return avg < threshold
     }
 
     // ── Green pixel detection ────────────────────────────────────
@@ -102,6 +143,40 @@ object ScreenCapture {
         val g = (pixel shr 8)  and 0xFF
         val b =  pixel         and 0xFF
         return r in 0..80 && g in 140..220 && b in 40..130
+    }
+
+    // ── Stitch utilities ─────────────────────────────────────────
+
+    /**
+     * Ghép danh sách bitmap thành 1 ảnh ngang (side-by-side).
+     */
+    fun stitchHorizontal(bitmaps: List<Bitmap>): Bitmap {
+        if (bitmaps.isEmpty()) return Bitmap.createBitmap(1, 1, Bitmap.Config.RGB_565)
+        val totalWidth = bitmaps.sumOf { it.width }
+        val maxHeight  = bitmaps.maxOf { it.height }
+        val result = Bitmap.createBitmap(totalWidth, maxHeight, Bitmap.Config.RGB_565)
+        val canvas = android.graphics.Canvas(result)
+        var xOff = 0
+        for (bmp in bitmaps) {
+            canvas.drawBitmap(bmp, xOff.toFloat(), 0f, null)
+            xOff += bmp.width
+        }
+        DebugLogger.d(TAG, "stitchHorizontal: ${bitmaps.size} imgs → ${result.width}x${result.height}")
+        return result
+    }
+
+    /**
+     * Xếp chồng: [top] bên trên, [bottom] bên dưới.
+     * Chiều rộng lấy giá trị lớn hơn (phần thiếu để trống).
+     */
+    fun stackVertical(top: Bitmap, bottom: Bitmap): Bitmap {
+        val width  = maxOf(top.width, bottom.width)
+        val result = Bitmap.createBitmap(width, top.height + bottom.height, Bitmap.Config.RGB_565)
+        val canvas = android.graphics.Canvas(result)
+        canvas.drawBitmap(top, 0f, 0f, null)
+        canvas.drawBitmap(bottom, 0f, top.height.toFloat(), null)
+        DebugLogger.d(TAG, "stackVertical: top=${top.width}x${top.height} bot=${bottom.width}x${bottom.height} → ${result.width}x${result.height}")
+        return result
     }
 
     // ── Content detection ─────────────────────────────────────────

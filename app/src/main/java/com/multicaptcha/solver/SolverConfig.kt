@@ -43,6 +43,11 @@ object SolverConfig {
     var submitTapY: Float
         get() = getFloat("subty", 77f); set(v) = setFloat("subty", v)
 
+    // ── Captcha question text (sent as "other" to OMOcaptcha API) ─
+    var captchaOther: String
+        get() = prefs?.getString("captcha_other", "") ?: ""
+        set(v) { prefs?.edit()?.putString("captcha_other", v)?.apply() }
+
     // ── "Match This!" reference image crop ───────────────────────
     var matchCropLeft: Float
         get() = getFloat("mcl", 25f); set(v) = setFloat("mcl", v)
@@ -58,6 +63,7 @@ object SolverConfig {
         arrowTapX = 90f;  arrowTapY = 71f
         submitDetectTop = 75f; submitDetectBot = 82f; submitTapY = 77f
         matchCropLeft = 25f; matchCropRight = 49f; matchCropTop = 45f; matchCropBot = 65f
+        // captchaOther intentionally not reset — user must re-enter
     }
 
     fun toDebugString(): String = """
