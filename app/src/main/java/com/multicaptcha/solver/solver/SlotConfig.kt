@@ -48,9 +48,9 @@ data class SlotConfig(
     /** Toàn bộ vùng challenge (cả 2 ảnh) — để check hasContent */
     val challengeImageRect: Rect get() = Rect(
         (width  * 0.02f).toInt(),
-        (height * (SolverConfig.matchCropTop - 8).coerceAtLeast(10) / 100f).toInt(),
+        (height * (SolverConfig.matchCropTop - 8).coerceAtLeast(10f) / 100f).toInt(),
         (width  * 0.98f).toInt(),
-        (height * (SolverConfig.matchCropBot + 8).coerceAtMost(90) / 100f).toInt()
+        (height * (SolverConfig.matchCropBot + 8).coerceAtMost(90f) / 100f).toInt()
     )
 
     /** Mũi tên phải → */
