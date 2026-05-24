@@ -8,3 +8,8 @@
 .externalNativeBuild
 .cxx
 local.properties
+omo_src/
+jadx_tool/
+jadx/
+apk_extracted/
+*.apk

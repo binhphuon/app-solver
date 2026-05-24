@@ -100,12 +100,12 @@ class FuncaptchaSolver(
         currentState = SlotState.VERIFYING
 
         // ── 0. Reset carousel về position 1 nếu cần ────────────
+        // Vì chưa biết total, click phải MAX_OPTIONS lần = 1 vòng đầy → về lại vị trí ban đầu
+        // Sau đó duplicate-detection khi capture sẽ xác định đúng total.
         if (carouselPos != 1) {
-            // Từ pos N, click phải (7 - N) % 6 lần = về pos 1
-            val resetClicks = (7 - carouselPos) % TOTAL_OPTIONS
-            DebugLogger.d(TAG, "Carousel at pos $carouselPos — resetting to 1 ($resetClicks clicks)")
+            DebugLogger.d(TAG, "Carousel at pos $carouselPos — full revolution reset (${MAX_OPTIONS} clicks)")
             OverlayManager.updateSlotStep(slot.index, "Reset carousel về pos 1...")
-            repeat(resetClicks) {
+            repeat(MAX_OPTIONS) {
                 TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ reset")
                 delay(ARROW_DELAY_MS)
             }
