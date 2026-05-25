@@ -27,10 +27,8 @@ class FuncaptchaSolver(
     var currentState: SlotState = SlotState.IDLE
         private set
 
-    // true sau khi handleStart() được gọi — ngăn solvePuzzle() chạy khi window chưa mở
-    private var hasSeenStart: Boolean = false
-
-    // Vị trí carousel hiện tại (1-based, reset khi puzzle mới load)
+    // Vị trí carousel hiện tại (1-based). Mỗi puzzle/challenge mới FunCaptcha
+    // luôn reset về 1 → solvePuzzle() set = 1 ngay đầu mỗi lần chạy.
     private var carouselPos: Int = 1
 
     // ── Detect state ─────────────────────────────────────────────
@@ -38,7 +36,8 @@ class FuncaptchaSolver(
     fun detectState(slotBitmap: Bitmap): SlotState {
         DebugLogger.sep("Slot[${slot.index}] detect — ${slotBitmap.width}x${slotBitmap.height}")
 
-        // 1. Check nút Start Puzzle (green vùng giữa-dưới)
+        // 1. Nút Start Puzzle (chỉ hiện 1 lần ở đầu captcha session, sau đó các challenge tiếp theo
+        //    của cùng session tự load không qua Start button)
         val startRect  = slot.startButtonRect
         val startGreen = ScreenCapture.greenRatio(slotBitmap, startRect)
         val startHit   = startGreen > GREEN_THRESHOLD
@@ -50,7 +49,8 @@ class FuncaptchaSolver(
             return SlotState.START_VISIBLE
         }
 
-        // 2. Check nút Submit (green vùng dưới) → puzzle đang active và sẵn sàng submit
+        // 2. Nút Submit green → puzzle đang active. Áp dụng cho MỌI challenge trong session,
+        //    không phải chỉ challenge đầu.
         val submitRect  = slot.submitButtonRect
         val submitGreen = ScreenCapture.greenRatio(slotBitmap, submitRect)
         val submitHit   = submitGreen > GREEN_THRESHOLD
@@ -62,19 +62,9 @@ class FuncaptchaSolver(
             return SlotState.PUZZLE_ACTIVE
         }
 
-        // 3. hasContent fallback — chỉ dùng sau khi đã từng thấy START_VISIBLE
-        //    (tránh call API khi window vừa mở, chưa phải captcha)
-        val challengeArea = ScreenCapture.cropRegion(slotBitmap, slot.challengeImageRect)
-        val hasContent    = ScreenCapture.hasSignificantContent(challengeArea)
-        DebugLogger.d(TAG, "hasContent=$hasContent hasSeenStart=$hasSeenStart " +
-            "(challengeRect=[${slot.challengeImageRect.left},${slot.challengeImageRect.top}-${slot.challengeImageRect.right},${slot.challengeImageRect.bottom}])")
-
-        val state = when {
-            hasContent && hasSeenStart -> SlotState.PUZZLE_ACTIVE
-            else                       -> SlotState.IDLE
-        }
-        DebugLogger.slotState(slot.index, "${state.name}(hasContent=$hasContent,hasSeenStart=$hasSeenStart)")
-        return state
+        // 3. Không có start/submit green → IDLE (loading, đã solved xong, hoặc không phải captcha screen)
+        DebugLogger.slotState(slot.index, "IDLE")
+        return SlotState.IDLE
     }
 
     // ── Step 1: Tap Start Puzzle ──────────────────────────────────
@@ -85,7 +75,6 @@ class FuncaptchaSolver(
         OverlayManager.updateSlotStep(slot.index, "Tap Start Puzzle...")
 
         TouchInjector.tapInSlot(slot, slot.startButtonRelX, slot.startButtonRelY, "Start Puzzle")
-        hasSeenStart = true
         carouselPos  = 1          // puzzle mới → carousel reset về position 1
         currentState = SlotState.PUZZLE_ACTIVE
 
@@ -100,18 +89,9 @@ class FuncaptchaSolver(
         DebugLogger.sep("Slot[${slot.index}] SOLVE PUZZLE")
         currentState = SlotState.VERIFYING
 
-        // ── 0. Reset carousel về position 1 nếu cần ────────────
-        // Vì chưa biết total, click phải MAX_OPTIONS lần = 1 vòng đầy → về lại vị trí ban đầu
-        // Sau đó duplicate-detection khi capture sẽ xác định đúng total.
-        if (carouselPos != 1) {
-            DebugLogger.d(TAG, "Carousel at pos $carouselPos — full revolution reset (${MAX_OPTIONS} clicks)")
-            OverlayManager.updateSlotStep(slot.index, "Reset carousel về pos 1...")
-            repeat(MAX_OPTIONS) {
-                TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ reset")
-                delay(ARROW_DELAY_MS)
-            }
-            carouselPos = 1
-        }
+        // FunCaptcha luôn show challenge mới với carousel ở vị trí 1 → reset internal counter.
+        // (Nếu retry sau khi fail giữa chừng, internal pos có thể không khớp real, chấp nhận.)
+        carouselPos = 1
 
         // ── 1. Đọc question text + total options bằng OCR ──────
         // FunCaptcha render bằng SurfaceView → accessibility KHÔNG đọc được nội dung,
@@ -123,14 +103,16 @@ class FuncaptchaSolver(
         val ocrText = OcrHelper.extractText(questionBmp)
         DebugLogger.i(TAG, "════ OCR raw: \"${ocrText ?: "<null>"}\" (rect=${slot.questionTextRect})")
 
-        // Parse "(N of M)" để biết total options luôn nếu có
-        val ocrTotal = ocrText?.let {
-            Regex("""\(\s*\d+\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
-                ?.groupValues?.get(1)?.toIntOrNull()
+        // Parse "(N of M)" — đây là CHALLENGE counter (đang giải challenge thứ N trong tổng M challenges
+        // của captcha session), KHÔNG phải số options. Log info, không dùng tính total options.
+        val challengeMatch = ocrText?.let {
+            Regex("""\(\s*(\d+)\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
         }
-        DebugLogger.i(TAG, "════ OCR counter total: ${ocrTotal ?: "<not found>"}")
+        if (challengeMatch != null) {
+            DebugLogger.i(TAG, "════ Challenge ${challengeMatch.groupValues[1]}/${challengeMatch.groupValues[2]} (info only)")
+        }
 
-        // Loại bỏ phần "(N of M)" khỏi question text gửi API
+        // Loại bỏ phần "(N of M)" khỏi question text gửi API (giữ instruction sạch)
         val cleanedOcr = ocrText
             ?.replace(Regex("""\(\s*\d+\s*of\s*\d+\s*\)""", RegexOption.IGNORE_CASE), "")
             ?.replace(Regex("\\s+"), " ")
@@ -141,7 +123,7 @@ class FuncaptchaSolver(
 
         DebugLogger.i(TAG, "════ Question text gửi API: \"${questionText ?: "<empty>"}\"")
 
-        // ── Đếm dots (carousel indicator phía trên Submit) ──────
+        // ── Đếm dots (carousel indicator phía trên Submit) — NGUỒN DUY NHẤT cho tổng options ──
         val dotsBmp   = ScreenCapture.cropRegion(slotBmpFirst, slot.dotsCountRect)
         val dotsCount = ScreenCapture.countDots(dotsBmp)
         DebugLogger.i(TAG, "════ Dot count: $dotsCount (rect=${slot.dotsCountRect})")
@@ -149,15 +131,15 @@ class FuncaptchaSolver(
         // Cập nhật info overlay (luôn hiện, ngoài vùng làm việc)
         OverlayManager.updateSlotInfo(slot.index, questionText, dotsCount)
 
-        // Tổng options: ưu tiên OCR "(N of M)" → fallback đếm dots
-        val totalKnown = ocrTotal ?: dotsCount.takeIf { it in 2..30 }
+        // Tổng options: CHỈ dùng dot count
+        val totalKnown = dotsCount.takeIf { it in 2..30 }
         if (totalKnown == null) {
-            DebugLogger.e(TAG, "Không xác định được tổng options (OCR + dot count đều fail). Abort.")
-            OverlayManager.updateSlotStep(slot.index, "Lỗi: không biết tổng options")
+            DebugLogger.e(TAG, "Dot count = $dotsCount không hợp lệ (cần 2-30). Abort solve.")
+            OverlayManager.updateSlotStep(slot.index, "Lỗi: dot count không hợp lệ")
             currentState = SlotState.PUZZLE_ACTIVE
             return false
         }
-        DebugLogger.i(TAG, "════ Total options dùng: $totalKnown (source=${if (ocrTotal != null) "OCR" else "dots"})")
+        DebugLogger.i(TAG, "════ Total options: $totalKnown (từ dot count)")
 
         // ── Crop reference image từ screenshot hiện tại ──────────
         val refBmp = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
@@ -232,7 +214,7 @@ class FuncaptchaSolver(
         }
 
         // ── 6. Navigate đến đúng position ───────────────────────
-        // carouselPos hiện tại: nếu detected wrap → 1, nếu hit MAX_OPTIONS → MAX_OPTIONS
+        // Sau capture loop carouselPos = totalKnown (last position).
         // Clicks cần = (index - carouselPos + totalOptions) % totalOptions
         val clicksNeeded = ((result.index - carouselPos + totalOptions) % totalOptions)
         DebugLogger.d(TAG, "Answer: index=${result.index}, currentPos=$carouselPos, total=$totalOptions → $clicksNeeded clicks needed")
@@ -268,9 +250,8 @@ class FuncaptchaSolver(
     }
 
     fun resetState() {
-        DebugLogger.d(TAG, "resetState SOLVED→IDLE")
+        DebugLogger.d(TAG, "resetState → IDLE")
         currentState = SlotState.IDLE
-        hasSeenStart = false
         carouselPos  = 1
     }
 
@@ -279,6 +260,5 @@ class FuncaptchaSolver(
         private const val ARROW_DELAY_MS   = 400L
         private const val SUBMIT_DELAY_MS  = 600L
         private const val CAPTURE_DELAY_MS = 650L   // chờ animation scroll trước khi chụp
-        private const val MAX_OPTIONS      = 22      // giới hạn cho carousel reset (FunCaptcha max ~20)
     }
 }
