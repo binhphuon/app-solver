@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.view.View
+import com.multicaptcha.solver.solver.SlotState
 
 /**
  * Info overlay luôn hiển thị, đặt tại Y 10%-35% màn hình (NGOÀI vùng OCR/option/dots).
@@ -18,7 +19,12 @@ import android.view.View
  */
 class InfoOverlayView(context: Context) : View(context) {
 
-    private data class SlotInfo(var ocr: String = "—", var dots: Int = 0)
+    private data class SlotInfo(
+        var ocr:   String = "—",
+        var dots:  Int    = 0,
+        var state: SlotState = SlotState.IDLE,
+        var step:  String = "",
+    )
     private val slotInfos = mutableListOf<SlotInfo>()
     private var slotCount: Int = 0
 
@@ -51,6 +57,31 @@ class InfoOverlayView(context: Context) : View(context) {
         color = Color.argb(255, 255, 200, 80)
         typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
     }
+    private val statePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 20f
+        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+    }
+    private val stepPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 18f
+        color = Color.argb(220, 180, 220, 255)
+        typeface = Typeface.MONOSPACE
+    }
+
+    private fun stateColor(s: SlotState): Int = when (s) {
+        SlotState.IDLE          -> Color.argb(220, 150, 150, 150)
+        SlotState.START_VISIBLE -> Color.argb(255, 100, 255, 100)
+        SlotState.PUZZLE_ACTIVE -> Color.argb(255, 255, 200, 50)
+        SlotState.VERIFYING     -> Color.argb(255, 100, 180, 255)
+        SlotState.SOLVED        -> Color.argb(255, 50, 220, 100)
+    }
+
+    private fun stateIcon(s: SlotState): String = when (s) {
+        SlotState.IDLE          -> "○ IDLE"
+        SlotState.START_VISIBLE -> "▶ START"
+        SlotState.PUZZLE_ACTIVE -> "⚡ PUZZLE"
+        SlotState.VERIFYING     -> "⏳ API"
+        SlotState.SOLVED        -> "✓ SOLVED"
+    }
 
     fun setSlotCount(n: Int) {
         slotCount = n
@@ -59,12 +90,26 @@ class InfoOverlayView(context: Context) : View(context) {
         postInvalidate()
     }
 
+    /** Update OCR text + dot count (gọi từ FuncaptchaSolver sau OCR) */
     fun updateSlot(index: Int, ocr: String?, dots: Int) {
         if (index !in 0 until slotInfos.size) return
-        slotInfos[index] = SlotInfo(
-            ocr  = ocr?.takeIf { it.isNotBlank() } ?: "—",
-            dots = dots
-        )
+        val cur = slotInfos[index]
+        cur.ocr  = ocr?.takeIf { it.isNotBlank() } ?: "—"
+        cur.dots = dots
+        postInvalidate()
+    }
+
+    /** Update slot state (icon + màu) */
+    fun updateSlotState(index: Int, state: SlotState) {
+        if (index !in 0 until slotInfos.size) return
+        slotInfos[index].state = state
+        postInvalidate()
+    }
+
+    /** Update step text (mô tả ngắn step hiện tại) */
+    fun updateSlotStep(index: Int, step: String) {
+        if (index !in 0 until slotInfos.size) return
+        slotInfos[index].step = step
         postInvalidate()
     }
 
@@ -87,18 +132,27 @@ class InfoOverlayView(context: Context) : View(context) {
             val padding = 12f
             val info = slotInfos.getOrNull(i) ?: continue
 
-            // Header SLOT N
-            canvas.drawText("SLOT $i", x + padding, topY + 30f, headerPaint)
+            // Header SLOT N + STATE icon (cùng dòng)
+            canvas.drawText("SLOT $i", x + padding, topY + 28f, headerPaint)
+            statePaint.color = stateColor(info.state)
+            val stateText = stateIcon(info.state)
+            val headerW = headerPaint.measureText("SLOT $i")
+            canvas.drawText(stateText, x + padding + headerW + 16f, topY + 28f, statePaint)
 
-            // Dots count (lớn, nổi bật)
-            val dotsText = "Dots: ${info.dots}"
-            canvas.drawText(dotsText, x + padding, topY + 60f, dotsPaint)
+            // Dots count
+            canvas.drawText("Dots: ${info.dots}", x + padding, topY + 56f, dotsPaint)
 
-            // OCR text — wrap nhiều dòng
-            drawWrapped(canvas, "OCR: ${info.ocr}",
-                x + padding, topY + 90f,
-                colW - 2 * padding, botY - 10f,
+            // OCR text — wrap, leave room for step text bên dưới
+            val ocrEndY = drawWrapped(canvas, "OCR: ${info.ocr}",
+                x + padding, topY + 82f,
+                colW - 2 * padding, botY - 28f,
                 ocrPaint)
+
+            // Step text (subtle, dưới cùng) nếu có
+            if (info.step.isNotEmpty()) {
+                canvas.drawText("→ ${info.step}".take(40),
+                    x + padding, botY - 8f, stepPaint)
+            }
 
             // Vertical separator
             if (i > 0) canvas.drawLine(x, topY, x, botY, sepPaint)
@@ -110,7 +164,7 @@ class InfoOverlayView(context: Context) : View(context) {
         x: Float, startY: Float,
         maxWidth: Float, maxY: Float,
         paint: Paint
-    ) {
+    ): Float {
         val words = text.split(" ")
         val lines = mutableListOf<String>()
         var current = StringBuilder()
@@ -135,5 +189,6 @@ class InfoOverlayView(context: Context) : View(context) {
             canvas.drawText(line, x, y, paint)
             y += lineH
         }
+        return y
     }
 }

@@ -10,17 +10,20 @@ import java.io.File
 
 object ScreenCapture {
 
-    private const val TAG      = "ScreenCapture"
-    private const val TMP_ROOT = "/data/local/tmp/mcs_cap.png"
+    private const val TAG = "ScreenCapture"
 
-    // ── Chụp màn hình ────────────────────────────────────────────
+    // ── Chụp màn hình (thread-safe — unique temp file mỗi call) ──
 
     fun capture(): Bitmap? {
         return try {
-            RootShell.exec("screencap -p $TMP_ROOT")
+            // Unique temp file → multiple coroutines parallel không race
+            val nano = System.nanoTime()
+            val rootTmp = "/data/local/tmp/mcs_cap_$nano.png"
 
-            val appTmp = File.createTempFile("mcs_cap", ".png")
-            RootShell.exec("cp $TMP_ROOT ${appTmp.absolutePath} && chmod 644 ${appTmp.absolutePath}")
+            RootShell.exec("screencap -p $rootTmp")
+
+            val appTmp = File.createTempFile("mcs_cap_", ".png")
+            RootShell.exec("cp $rootTmp ${appTmp.absolutePath} && chmod 644 ${appTmp.absolutePath} && rm $rootTmp")
 
             val bmp = BitmapFactory.decodeFile(appTmp.absolutePath)
             appTmp.delete()
@@ -292,71 +295,4 @@ object ScreenCapture {
         }
     }
 
-    // ── Content detection ─────────────────────────────────────────
-
-    /**
-     * Kiểm tra bitmap có nội dung đa dạng không
-     * (phân biệt màn hình có nội dung vs. nền trắng/trống)
-     */
-    fun hasSignificantContent(bmp: Bitmap): Boolean {
-        if (bmp.width < 4 || bmp.height < 4) return false
-
-        val stepX = (bmp.width  / 10).coerceAtLeast(1)
-        val stepY = (bmp.height / 10).coerceAtLeast(1)
-        val reds = mutableListOf<Int>()
-        val greens = mutableListOf<Int>()
-        val blues  = mutableListOf<Int>()
-
-        for (x in 0 until bmp.width  step stepX)
-        for (y in 0 until bmp.height step stepY) {
-            val p = bmp.getPixel(x, y)
-            reds.add((p shr 16) and 0xFF)
-            greens.add((p shr 8) and 0xFF)
-            blues.add(p and 0xFF)
-        }
-
-        val totalVariance = variance(reds) + variance(greens) + variance(blues)
-        DebugLogger.d(TAG, "contentVariance=${totalVariance.toInt()}")
-        return totalVariance > 500f
-    }
-
-    private fun variance(v: List<Int>): Float {
-        if (v.isEmpty()) return 0f
-        val mean = v.average()
-        return v.map { (it - mean) * (it - mean) }.average().toFloat()
-    }
-
-    /**
-     * Kiểm tra có popup/dialog che màn hình không.
-     * Dialog thường có nền trắng tập trung ở giữa màn hình.
-     * @return true nếu vùng trung tâm màn hình có nền trắng đồng nhất
-     */
-    fun isCenterDialogVisible(bitmap: Bitmap): Boolean {
-        // Lấy vùng trung tâm 40%×30% của bitmap
-        val l = (bitmap.width  * 0.30f).toInt()
-        val t = (bitmap.height * 0.33f).toInt()
-        val r = (bitmap.width  * 0.70f).toInt()
-        val b = (bitmap.height * 0.60f).toInt()
-        if (l >= r || t >= b) return false
-
-        val region = try { cropRegion(bitmap, android.graphics.Rect(l, t, r, b)) }
-                     catch (_: Exception) { return false }
-
-        var brightPx = 0
-        var total    = 0
-        val step = 4
-        for (y in 0 until region.height step step) {
-            for (x in 0 until region.width step step) {
-                val px = region.getPixel(x, y)
-                val r  = android.graphics.Color.red(px)
-                val g  = android.graphics.Color.green(px)
-                val b  = android.graphics.Color.blue(px)
-                if (r > 210 && g > 210 && b > 210) brightPx++
-                total++
-            }
-        }
-        val ratio = if (total > 0) brightPx.toFloat() / total else 0f
-        android.util.Log.d("ScreenCapture", "isCenterDialogVisible: brightRatio=${"%.2f".format(ratio)}")
-        return ratio > 0.80f   // >80% pixel trắng → có dialog
-    }
 }

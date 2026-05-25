@@ -18,6 +18,7 @@ import com.multicaptcha.solver.solver.OmoApiClient
 import com.multicaptcha.solver.solver.SlotManager
 import com.multicaptcha.solver.solver.SlotState
 import kotlinx.coroutines.*
+import java.util.concurrent.atomic.AtomicInteger
 
 class SolverService : Service() {
 
@@ -97,6 +98,8 @@ class SolverService : Service() {
 
     // ── Main loop ────────────────────────────────────────────────
 
+    private val solvedTotal = AtomicInteger(0)
+
     private suspend fun runSolverLoop(apiKey: String, packages: List<String>) {
         // Lấy kích thước màn hình thực
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -127,124 +130,84 @@ class SolverService : Service() {
             DebugLogger.d(TAG, "  submit:     rel(${s.submitRelX}, ${s.submitRelY})")
         }
 
-        updateNotification("Running — ${packages.size} slots")
-        OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
+        updateNotification("Running — ${packages.size} slots (parallel)")
+        OverlayManager.updateHeader("● MultiCaptcha Solver — Parallel (3 slots)")
+        solvedTotal.set(0)
 
-        // Dismiss popup khởi động nếu có (App Cloner "old version" warning, v.v.)
-        DebugLogger.sep("CHECK STARTUP DIALOGS")
-        OverlayManager.updateHeader("⏳ Kiểm tra dialogs...")
-        delay(1500)
-        val startupShot = ScreenCapture.capture()
-        if (startupShot != null && ScreenCapture.isCenterDialogVisible(startupShot)) {
-            DebugLogger.i(TAG, "Startup dialog detected — dismissing")
-            OverlayManager.updateHeader("⏳ Dismiss dialogs...")
-            dismissAnyDialog(screenW, screenH)
-            delay(1000)
-        } else {
-            DebugLogger.d(TAG, "No startup dialog detected — skip dismiss")
+        // ── Launch per-slot coroutines song song ──
+        // Mỗi slot có 1 coroutine riêng, poll + solve độc lập → tốc độ tăng ~3x
+        // (so với sequential trước đây).
+        coroutineScope {
+            solvers.forEach { solver ->
+                launch { runSlotLoop(solver) }
+            }
         }
 
-        var loopCount      = 0
-        var solvedTotal    = 0
-        var allIdleStreak  = 0   // đếm loop liên tiếp tất cả slot đều IDLE
+        DebugLogger.i(TAG, "Solver ended. Total solved across all slots: ${solvedTotal.get()}")
+    }
+
+    /**
+     * Loop riêng cho từng slot — chạy song song với các slot khác.
+     * ScreenCapture.capture() đã thread-safe (unique temp file mỗi call).
+     */
+    private suspend fun runSlotLoop(solver: FuncaptchaSolver) {
+        val idx = solver.slot.index
+        var iter = 0
+        DebugLogger.i(TAG, "Slot[$idx] loop started")
 
         while (currentCoroutineContext().isActive) {
-            val loopStart = System.currentTimeMillis()
-            loopCount++
+            iter++
+            val tStart = System.currentTimeMillis()
 
             try {
-                DebugLogger.sep("LOOP #$loopCount")
-                OverlayManager.updateLoop(loopCount, solvedTotal, 0, solvers.size)
-
-                // Chụp 1 lần cho tất cả slot
                 val screenshot = ScreenCapture.capture()
                 if (screenshot == null) {
-                    DebugLogger.w(TAG, "Screenshot null — skip loop #$loopCount")
-                    OverlayManager.updateHeader("⚠ Screenshot failed — retrying...")
+                    DebugLogger.w(TAG, "Slot[$idx] screenshot null — retry in 2s")
                     delay(2000)
                     continue
                 }
 
-                var activeCount = 0
+                val slotBmp = ScreenCapture.cropSlot(screenshot, solver.slot)
+                val state   = solver.detectState(slotBmp)
+                OverlayManager.updateSlot(idx, state)
 
-                for (solver in solvers) {
-                    if (!currentCoroutineContext().isActive) break
-
-                    val slotBmp = ScreenCapture.cropSlot(screenshot, solver.slot)
-                    val state   = solver.detectState(slotBmp)
-                    OverlayManager.updateSlot(solver.slot.index, state)
-
-                    when (state) {
-                        SlotState.START_VISIBLE -> {
-                            activeCount++
-                            DebugLogger.slotAction(solver.slot.index, "→ handleStart()")
-                            OverlayManager.updateSlotStep(solver.slot.index, "Tapping Start...")
-                            solver.handleStart()
-                        }
-                        SlotState.PUZZLE_ACTIVE -> {
-                            activeCount++
-                            DebugLogger.slotAction(solver.slot.index, "→ solvePuzzle()")
-                            OverlayManager.updateSlotStep(solver.slot.index, "Crop ảnh...")
-                            val ok = solver.solvePuzzle(screenshot)
-                            if (ok) {
-                                solvedTotal++
-                                DebugLogger.i(TAG, "✓ Solved! Total=$solvedTotal")
-                                updateNotification("Solved: $solvedTotal | Loop: $loopCount")
-                                OverlayManager.updateLoop(loopCount, solvedTotal, activeCount, solvers.size)
-                            } else {
-                                DebugLogger.w(TAG, "Solve attempt failed for slot[${solver.slot.index}]")
-                                OverlayManager.updateSlotStep(solver.slot.index, "Thất bại, thử lại")
-                            }
-                        }
-                        SlotState.SOLVED -> {
+                when (state) {
+                    SlotState.START_VISIBLE -> {
+                        DebugLogger.slotAction(idx, "→ handleStart()")
+                        OverlayManager.updateSlotStep(idx, "Tapping Start...")
+                        solver.handleStart()
+                    }
+                    SlotState.PUZZLE_ACTIVE -> {
+                        DebugLogger.slotAction(idx, "→ solvePuzzle()")
+                        OverlayManager.updateSlotStep(idx, "Solving...")
+                        val ok = solver.solvePuzzle(screenshot)
+                        if (ok) {
+                            val total = solvedTotal.incrementAndGet()
+                            DebugLogger.i(TAG, "Slot[$idx] ✓ Solved! Global total=$total")
+                            updateNotification("Solved: $total")
                             solver.resetState()
-                            DebugLogger.d(TAG, "Slot[${solver.slot.index}] SOLVED → reset to IDLE")
-                        }
-                        SlotState.VERIFYING -> {
-                            DebugLogger.d(TAG, "Slot[${solver.slot.index}] still VERIFYING — skip")
-                        }
-                        SlotState.IDLE -> {
-                            DebugLogger.d(TAG, "Slot[${solver.slot.index}] IDLE")
-                        }
-                    }
-                }
-
-                val elapsed = System.currentTimeMillis() - loopStart
-                DebugLogger.loopTick(loopCount, activeCount, solvers.size, elapsed)
-                OverlayManager.updateLoop(loopCount, solvedTotal, activeCount, solvers.size)
-
-                // Nếu tất cả slot đều IDLE quá lâu → có thể đang bị popup che
-                if (activeCount == 0) {
-                    allIdleStreak++
-                    if (allIdleStreak % IDLE_DISMISS_EVERY == 0) {
-                        DebugLogger.w(TAG, "All IDLE for $allIdleStreak loops — checking for dialog")
-                        val idleShot = ScreenCapture.capture()
-                        if (idleShot != null && ScreenCapture.isCenterDialogVisible(idleShot)) {
-                            DebugLogger.w(TAG, "Dialog detected — dismissing")
-                            OverlayManager.updateHeader("⚠ Dialog found — dismissing...")
-                            dismissAnyDialog(screenW, screenH)
-                            delay(800)
                         } else {
-                            DebugLogger.d(TAG, "No dialog found despite all-IDLE streak")
+                            DebugLogger.w(TAG, "Slot[$idx] solve failed — retry next iter")
+                            OverlayManager.updateSlotStep(idx, "Thất bại, retry")
                         }
-                        OverlayManager.updateHeader("● MultiCaptcha Solver — Running")
                     }
-                } else {
-                    allIdleStreak = 0
+                    SlotState.SOLVED, SlotState.VERIFYING, SlotState.IDLE -> {
+                        // Không làm gì, chờ next poll
+                    }
                 }
 
+                val elapsed = System.currentTimeMillis() - tStart
+                DebugLogger.d(TAG, "Slot[$idx] iter $iter (${elapsed}ms, state=$state)")
                 delay(POLL_INTERVAL_MS)
 
             } catch (e: CancellationException) {
-                DebugLogger.i(TAG, "Loop cancelled")
+                DebugLogger.i(TAG, "Slot[$idx] cancelled")
                 break
             } catch (e: Exception) {
-                DebugLogger.e(TAG, "Unexpected loop error", e)
+                DebugLogger.e(TAG, "Slot[$idx] loop error", e)
                 delay(3000)
             }
         }
-
-        DebugLogger.i(TAG, "Solver loop ended. Total solved: $solvedTotal in $loopCount loops")
     }
 
     // ── Notification ─────────────────────────────────────────────
@@ -266,35 +229,6 @@ class SolverService : Service() {
             .notify(NOTIF_ID, buildNotification(text))
     }
 
-    // ── Dismiss popup / dialog ────────────────────────────────────
-
-    /**
-     * Dismiss bất kỳ popup/dialog nào đang che màn hình bằng cách:
-     * 1. Tap vào góc ngoài cùng của màn hình (ngoài bất kỳ dialog nào centered)
-     * 2. Gửi BACK key (đóng dialog cancelable)
-     *
-     * Dialog "This app was built for older Android" của App Cloner
-     * thường nằm ở trung tâm màn hình, nên tap góc (30, 50) sẽ dismiss nó.
-     */
-    private suspend fun dismissAnyDialog(screenW: Int, screenH: Int) {
-        DebugLogger.d(TAG, "dismissAnyDialog: tap corners + BACK")
-
-        // Tap góc màn hình — nằm ngoài bất kỳ dialog centered nào
-        val corners = listOf(
-            30 to 50,               // top-left
-            screenW - 30 to 50,    // top-right
-            30 to screenH - 50     // bottom-left
-        )
-        for ((x, y) in corners) {
-            RootShell.execSilent("input tap $x $y")
-            delay(220)
-        }
-
-        // BACK key — đóng dialog cancelable
-        RootShell.execSilent("input keyevent 4")
-        DebugLogger.d(TAG, "dismissAnyDialog: done")
-    }
-
     // ── Constants ─────────────────────────────────────────────────
 
     companion object {
@@ -305,7 +239,8 @@ class SolverService : Service() {
 
         /** Default packages dùng cho nút Start trong notification */
         val DEFAULT_PACKAGES = arrayListOf("a.baba", "a.dcdc", "a.fefe")
-        private const val POLL_INTERVAL_MS    = 1500L
-        private const val IDLE_DISMISS_EVERY  = 12   // dismiss sau 12 loop IDLE (~18s)
+
+        // Mỗi slot loop poll mỗi 800ms (nhanh hơn 1500ms cũ vì giờ chạy parallel)
+        private const val POLL_INTERVAL_MS = 800L
     }
 }

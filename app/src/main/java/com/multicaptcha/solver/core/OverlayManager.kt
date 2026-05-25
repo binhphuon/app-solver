@@ -114,6 +114,7 @@ object OverlayManager {
         if (index >= slotViews.size) return
         mainHandler.post {
             slotViews[index].update(state, detail)
+            infoView?.updateSlotState(index, state)
         }
     }
 
@@ -121,6 +122,7 @@ object OverlayManager {
         if (index >= slotViews.size) return
         mainHandler.post {
             slotViews[index].setStep(step)
+            infoView?.updateSlotStep(index, step)
         }
     }
 
