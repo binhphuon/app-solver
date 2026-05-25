@@ -13,24 +13,51 @@ Lần đầu chạy EasyOCR sẽ tự tải model tiếng Anh (~64MB).
 
 ## Sử dụng
 
+### Cách 1: Crop tay vùng câu hỏi rồi feed
+
 ```bash
-# Test 1 ảnh
-python ocr_test.py question_crop.png
+python ocr_test.py cropped_question.png
+```
 
-# Test cả folder
-python ocr_test.py crops/
+### Cách 2 (khuyên dùng): Feed nguyên slot, để script tự crop
 
-# Nếu text trắng trên nền tối → invert trước
-python ocr_test.py question_crop.png --invert
+Cách này test luôn cả crop calibration. Script crop dùng % giống hệt Android app.
 
-# Xem từng block detect được kèm confidence
-python ocr_test.py question_crop.png -v
+```bash
+# Dùng preset
+python ocr_test.py slot_full.png --crop question
+
+# Hoặc custom % (L,T,R,B) — giống etQLeft/Top/Right/Bot trong app
+python ocr_test.py slot_full.png --crop 24,40,93,44.7
+```
+
+**Presets** (đồng bộ với `SolverConfig.kt` defaults):
+
+| Preset      | L     | T     | R    | B     | Mục đích                       |
+|-------------|-------|-------|------|-------|--------------------------------|
+| `question`  | 24    | 40    | 93   | 44.7  | Vùng OCR text câu hỏi          |
+| `option`    | 48.5  | 45.6  | 80   | 65    | 1 ảnh option carousel          |
+| `dots`      | 40    | 73.6  | 95   | 75.5  | Page indicator dots            |
+| `match`     | 25    | 45.6  | 48.5 | 65    | Ảnh "Match This!" reference    |
+
+### Other options
+
+```bash
+# Batch test cả folder
+python ocr_test.py crops/ --crop question
+
+# Text trắng trên nền tối → invert
+python ocr_test.py img.png --invert
+
+# Show từng block + confidence (debug crop sai)
+python ocr_test.py slot_full.png --crop question -v
 ```
 
 ## Output mẫu
 
 ```
-════ question_crop.png
+════ slot_full.png
+  Crop          : L=24 T=40 R=93 B=44.7 (%)   → pixels (134, 432, 519, 482)
   OCR raw       : "Using the arrows, move the person to the indicated seat. (1 of 5)"
   Challenge cnt : 1 of 5   (← info only, KHÔNG phải số options)
   → API 'other' : "Using the arrows, move the person to the indicated seat."   [✓ OK]
