@@ -1,6 +1,10 @@
-# OCR Test
+# OCR / Dot count Test
 
-Tách OCR + parsing logic của Android app (`OcrHelper.kt` + `FuncaptchaSolver.kt`) ra Python để test crop ảnh captcha trực tiếp, không cần build APK lại mỗi lần thử.
+Tách logic Android (`OcrHelper.kt` + `FuncaptchaSolver.kt` + `ScreenCapture.countDots`) ra Python để test crop ảnh captcha trực tiếp, không cần build APK lại mỗi lần thử.
+
+**Hỗ trợ 2 mode:**
+- **OCR** — đọc text câu hỏi (dùng EasyOCR), parse `(N of M)`, clean text gửi API
+- **Dots** — đếm chấm tròn page indicator (port từ `ScreenCapture.countDots()`)
 
 ## Cài đặt
 
@@ -40,17 +44,52 @@ python ocr_test.py slot_full.png --crop 24,40,93,44.7
 | `dots`      | 40    | 73.6  | 95   | 75.5  | Page indicator dots            |
 | `match`     | 25    | 45.6  | 48.5 | 65    | Ảnh "Match This!" reference    |
 
+### Đếm dots (page indicator)
+
+```bash
+# Auto detect: --crop dots → mode dots
+python ocr_test.py slot.png --crop dots
+
+# Verbose: hiện X column ranges của từng dot detect được
+python ocr_test.py slot.png --crop dots -v
+```
+
+Output mẫu:
+```
+════ slot.png
+  Crop          : L=40 T=73.6 R=95 B=75.5 (%)   → pixels (220, 794, 522, 815)
+  Dot count     : 5
+  Dot groups (X column ranges):
+    Dot 1: cols 12-18  (width=7px)
+    Dot 2: cols 42-48  (width=7px)
+    Dot 3: cols 72-78  (width=7px)
+    Dot 4: cols 102-108 (width=7px)
+    Dot 5: cols 132-138 (width=7px)
+```
+
+### Lưu ảnh đã crop ra folder
+
+Hữu ích để verify crop có đúng vùng không:
+
+```bash
+python ocr_test.py slot.png --crop question -o cropped/
+# → tạo cropped/slot__question.png
+```
+
 ### Other options
 
 ```bash
 # Batch test cả folder
 python ocr_test.py crops/ --crop question
 
-# Text trắng trên nền tối → invert
-python ocr_test.py img.png --invert
+# Text trắng trên nền tối → invert (chỉ ảnh hưởng OCR)
+python ocr_test.py img.png --crop question --invert
 
-# Show từng block + confidence (debug crop sai)
-python ocr_test.py slot_full.png --crop question -v
+# Force mode khác với preset
+python ocr_test.py slot.png --crop 40,70,95,76 --mode dots
+
+# Show OCR blocks + confidence (debug crop sai)
+python ocr_test.py slot.png --crop question -v
 ```
 
 ## Output mẫu
@@ -71,6 +110,7 @@ python ocr_test.py slot_full.png --crop question -v
 | `parse_challenge_counter()` | `FuncaptchaSolver.kt` line 128-130                |
 | `strip_counter()`           | `FuncaptchaSolver.kt` line 134-137                |
 | `len(cleaned) >= 10` check  | `FuncaptchaSolver.kt` line 141 (`takeIf { it.length >= 10 }`) |
+| `count_dots()`              | `ScreenCapture.kt` `countDots()`                  |
 
 ## Lưu ý về độ chính xác
 

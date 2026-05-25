@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 """
-OCR test mô phỏng logic của FuncaptchaSolver / OcrHelper.kt.
-
-Cho phép input ảnh đã crop (vùng câu hỏi captcha) và xem:
-  - Raw text OCR đọc được (đã normalize whitespace, giống OcrHelper.kt)
-  - Parse "(N of M)" → challenge counter (info only, không phải số options)
-  - Cleaned text gửi lên OMOcaptcha API (bỏ "(N of M)")
-  - Validation: text < 10 ký tự thì FuncaptchaSolver sẽ fallback về captchaOther
+Test logic Android: OCR (OcrHelper.kt) + đếm dots (ScreenCapture.countDots).
 
 Usage:
-    # Nếu ảnh đã crop sẵn vùng câu hỏi
-    python ocr_test.py path/to/cropped_question.png
+    # OCR câu hỏi (auto mode = ocr nếu --crop question)
+    python ocr_test.py slot.png --crop question
 
-    # Nếu feed nguyên slot screenshot — script tự crop dùng % của Android app
-    python ocr_test.py slot_full.png --crop question
-    python ocr_test.py slot_full.png --crop 24,40,93,44.7   # custom L,T,R,B %
+    # Đếm dots (auto mode = dots nếu --crop dots)
+    python ocr_test.py slot.png --crop dots
 
-    # Batch
-    python ocr_test.py path/to/folder/
+    # Force mode khác preset:
+    python ocr_test.py slot.png --crop 40,70,95,76 --mode dots
 
-    # Tuỳ chọn
-    python ocr_test.py img.png --invert      # invert (text trắng/nền tối)
-    python ocr_test.py img.png -v            # show từng block + confidence
+    # Lưu ảnh đã crop để verify trực quan:
+    python ocr_test.py slot.png --crop question -o cropped/
+
+    # Batch + verbose
+    python ocr_test.py screenshots/ --crop question -v
 
 Crop presets (giống SolverConfig defaults):
-    question : L=24    T=40    R=93    B=44.7   ← Y câu hỏi
+    question : L=24    T=40    R=93    B=44.7   ← OCR text câu hỏi
     option   : L=48.5  T=45.6  R=80    B=65     ← 1 option carousel
     dots     : L=40    T=73.6  R=95    B=75.5   ← page indicator dots
     match    : L=25    T=45.6  R=48.5  B=65     ← ảnh "Match This!"
+
+Modes:
+    ocr   → EasyOCR đọc text + parse "(N of M)" + clean → API 'other'
+    dots  → Project pixel tối lên trục X, đếm nhóm columns liên tiếp
+    auto  → dots nếu --crop dots, ngược lại ocr (default)
 
 Note:
     Android app dùng Google ML Kit text-recognition (on-device). Script này
@@ -41,11 +41,61 @@ import argparse
 from pathlib import Path
 
 
-# ── Logic copy 1:1 từ FuncaptchaSolver.kt + OcrHelper.kt ──────────────────
+# ── Logic copy 1:1 từ FuncaptchaSolver.kt + OcrHelper.kt + ScreenCapture.kt ──
 
 def normalize(text: str) -> str:
     """Gộp whitespace + trim — OcrHelper.kt:34"""
     return re.sub(r"\s+", " ", text).strip()
+
+
+def count_dots(pil_img, brightness_threshold: int = 200, min_dot_width: int = 1):
+    """
+    Mirror của ScreenCapture.countDots() (Kotlin).
+    Project pixel tối lên trục X → đếm nhóm columns liên tiếp = số dots.
+
+    Return (count, groups_list) — groups dùng để visualize.
+    """
+    import numpy as np
+    arr = np.array(pil_img.convert("RGB"))
+    h, w, _ = arr.shape
+    if w < 4 or h < 2:
+        return 0, []
+
+    # Brightness trung bình mỗi pixel
+    brightness = arr.mean(axis=2)
+    # Đếm pixel tối mỗi column
+    dark_per_col = (brightness < brightness_threshold).sum(axis=0)
+
+    # Column "active" nếu có ≥ h/3 pixel tối
+    col_threshold = max(h // 3, 1)
+
+    dots = 0
+    in_group = False
+    group_len = 0
+    group_start = 0
+    groups = []
+
+    for x in range(w):
+        active = dark_per_col[x] >= col_threshold
+        if active:
+            if not in_group:
+                in_group = True
+                group_len = 1
+                group_start = x
+            else:
+                group_len += 1
+        else:
+            if in_group:
+                if group_len >= min_dot_width:
+                    dots += 1
+                    groups.append((group_start, x - 1))
+                in_group = False
+                group_len = 0
+    if in_group and group_len >= min_dot_width:
+        dots += 1
+        groups.append((group_start, w - 1))
+
+    return dots, groups
 
 
 def parse_challenge_counter(text: str):
@@ -110,57 +160,82 @@ def apply_crop(pil_img, crop_pct):
 
 # ── Test runner ───────────────────────────────────────────────────────────
 
-def ocr_image(reader, path: Path, invert: bool, crop_pct=None):
-    """
-    Chạy OCR. Nếu crop_pct (L,T,R,B %) → cắt trước khi OCR.
-    Return (raw_normalized, blocks_list[(bbox, text, conf)], crop_box_px hoặc None)
-    """
-    from PIL import Image, ImageOps
+def run_ocr(reader, pil_img, invert: bool):
+    """Chạy OCR, return (raw_normalized, blocks)."""
+    from PIL import ImageOps
     import numpy as np
-
-    img = Image.open(path).convert("RGB")
-    crop_box_px = None
-    if crop_pct is not None:
-        img, crop_box_px = apply_crop(img, crop_pct)
-    if invert:
-        img = ImageOps.invert(img)
-    result = reader.readtext(np.array(img))
-
-    raw = " ".join(item[1] for item in result)
-    return normalize(raw), result, crop_box_px
+    img = ImageOps.invert(pil_img) if invert else pil_img
+    blocks = reader.readtext(np.array(img))
+    raw = " ".join(b[1] for b in blocks)
+    return normalize(raw), blocks
 
 
-def test_image(reader, path: Path, invert: bool, verbose: bool, crop_pct=None):
+def save_crop(pil_img, src_path: Path, out_dir: Path, crop_label: str):
+    """Lưu ảnh cropped vào out_dir/ với filename = <stem>_<label>.png"""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{src_path.stem}__{crop_label}.png"
+    pil_img.save(out_path)
+    return out_path
+
+
+def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
+               invert: bool, verbose: bool, output_dir: Path = None):
     print()
     print(f"════ {path}")
 
+    from PIL import Image
     try:
-        raw, blocks, crop_box = ocr_image(reader, path, invert, crop_pct)
+        img = Image.open(path).convert("RGB")
     except Exception as e:
-        print(f"  ✗ OCR failed: {e}")
+        print(f"  ✗ Open image failed: {e}")
         return
 
+    # Crop nếu yêu cầu
+    crop_box = None
     if crop_pct is not None:
+        img, crop_box = apply_crop(img, crop_pct)
         L, T, R, B = crop_pct
         print(f"  Crop          : L={L} T={T} R={R} B={B} (%)   → pixels {crop_box}")
-    print(f"  OCR raw       : \"{raw}\"")
 
-    counter = parse_challenge_counter(raw)
-    if counter:
-        n, m = counter
-        print(f"  Challenge cnt : {n} of {m}   (← info only, KHÔNG phải số options)")
+        # Save cropped image nếu user yêu cầu
+        if output_dir is not None:
+            saved = save_crop(img, path, output_dir, crop_label)
+            print(f"  Saved crop    : {saved}")
+
+    if mode == "dots":
+        # ── Dot count (ScreenCapture.countDots) ──
+        count, groups = count_dots(img)
+        print(f"  Dot count     : {count}")
+        if verbose and groups:
+            print(f"  Dot groups (X column ranges):")
+            for i, (s, e) in enumerate(groups, 1):
+                print(f"    Dot {i}: cols {s}-{e}  (width={e - s + 1}px)")
     else:
-        print(f"  Challenge cnt : <không tìm thấy '(N of M)'>")
+        # ── OCR mode (default) ──
+        try:
+            raw, blocks = run_ocr(reader, img, invert)
+        except Exception as e:
+            print(f"  ✗ OCR failed: {e}")
+            return
 
-    cleaned = strip_counter(raw)
-    ok = len(cleaned) >= 10
-    flag = "✓ OK" if ok else "✗ TOO SHORT — FuncaptchaSolver sẽ fallback về captchaOther"
-    print(f"  → API 'other' : \"{cleaned}\"   [{flag}]")
+        print(f"  OCR raw       : \"{raw}\"")
 
-    if verbose:
-        print(f"  Blocks ({len(blocks)}):")
-        for bbox, text, conf in blocks:
-            print(f"    [{conf:.2f}] \"{text}\"")
+        counter = parse_challenge_counter(raw)
+        if counter:
+            n, m = counter
+            print(f"  Challenge cnt : {n} of {m}   (← info only, KHÔNG phải số options)")
+        else:
+            print(f"  Challenge cnt : <không tìm thấy '(N of M)'>")
+
+        cleaned = strip_counter(raw)
+        ok = len(cleaned) >= 10
+        flag = "✓ OK" if ok else "✗ TOO SHORT — FuncaptchaSolver sẽ fallback về captchaOther"
+        print(f"  → API 'other' : \"{cleaned}\"   [{flag}]")
+
+        if verbose:
+            print(f"  Blocks ({len(blocks)}):")
+            for bbox, text, conf in blocks:
+                print(f"    [{conf:.2f}] \"{text}\"")
 
 
 def main():
@@ -171,9 +246,20 @@ def main():
     p.add_argument("path", help="Ảnh hoặc folder để test")
     p.add_argument(
         "--crop", default=None,
-        help="Crop trước khi OCR. Preset: question|option|dots|match. "
+        help="Crop trước khi xử lý. Preset: question|option|dots|match. "
              "Hoặc custom: 'L,T,R,B' theo % (vd: 24,40,93,44.7). "
              "Bỏ qua nếu ảnh đã crop sẵn.",
+    )
+    p.add_argument(
+        "--mode", choices=["ocr", "dots", "auto"], default="auto",
+        help="Phương thức xử lý. 'ocr' = đọc text. 'dots' = đếm dots. "
+             "'auto' = chọn theo --crop preset (dots nếu --crop dots, "
+             "ngược lại ocr). Default: auto.",
+    )
+    p.add_argument(
+        "-o", "--output-dir", default=None,
+        help="Folder lưu ảnh đã crop (chỉ khi --crop set). Lưu file .png "
+             "tên '<original>__<label>.png' để check crop có đúng không.",
     )
     p.add_argument(
         "--invert", action="store_true",
@@ -181,30 +267,45 @@ def main():
     )
     p.add_argument(
         "-v", "--verbose", action="store_true",
-        help="Hiển thị từng block detect được kèm confidence",
+        help="Verbose: OCR blocks + confidence, hoặc dot column ranges",
     )
     args = p.parse_args()
 
+    # Parse --crop
     crop_pct = None
+    crop_label = "nocrop"
     if args.crop:
         crop_pct = parse_crop_arg(args.crop)
         if crop_pct is None:
             print(f"--crop không hợp lệ: '{args.crop}'")
             print(f"Dùng preset ({'|'.join(CROP_PRESETS)}) hoặc 'L,T,R,B'")
             sys.exit(1)
+        crop_label = args.crop if args.crop in CROP_PRESETS else "custom"
 
-    try:
-        import easyocr
-    except ImportError:
-        print("Chưa cài EasyOCR. Chạy:  pip install -r requirements.txt")
-        sys.exit(1)
+    # Resolve --mode (auto = dots khi crop dots, ngược lại ocr)
+    mode = args.mode
+    if mode == "auto":
+        mode = "dots" if args.crop == "dots" else "ocr"
 
-    print("Loading EasyOCR English model (lần đầu sẽ tải ~64MB)...")
-    reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+    output_dir = Path(args.output_dir) if args.output_dir else None
+
+    # Chỉ load EasyOCR khi cần (mode=ocr); mode=dots không cần
+    reader = None
+    if mode == "ocr":
+        try:
+            import easyocr
+        except ImportError:
+            print("Chưa cài EasyOCR. Chạy:  pip install -r requirements.txt")
+            sys.exit(1)
+        print("Loading EasyOCR English model (lần đầu sẽ tải ~64MB)...")
+        reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+    else:
+        print(f"Mode: {mode} — skip OCR model load")
 
     target = Path(args.path)
     if target.is_file():
-        test_image(reader, target, args.invert, args.verbose, crop_pct)
+        test_image(reader, target, mode, crop_pct, crop_label,
+                   args.invert, args.verbose, output_dir)
     elif target.is_dir():
         exts = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
         images = sorted(p for p in target.iterdir() if p.suffix.lower() in exts)
@@ -213,7 +314,8 @@ def main():
             return
         print(f"Tìm thấy {len(images)} ảnh trong {target}")
         for img in images:
-            test_image(reader, img, args.invert, args.verbose, crop_pct)
+            test_image(reader, img, mode, crop_pct, crop_label,
+                       args.invert, args.verbose, output_dir)
     else:
         print(f"Không tồn tại: {target}")
         sys.exit(1)
