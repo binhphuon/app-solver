@@ -13,3 +13,17 @@ jadx_tool/
 jadx/
 apk_extracted/
 *.apk
+
+# Python (ocr_test/)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+# Test images user crop để debug — không nên push
+ocr_test/crops/
+ocr_test/*.png
+ocr_test/*.jpg
+ocr_test/*.jpeg
