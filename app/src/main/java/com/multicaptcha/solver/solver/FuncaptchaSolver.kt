@@ -182,11 +182,22 @@ class FuncaptchaSolver(
         val combined     = ScreenCapture.stackVertical(optionsStrip, refBmp)
         DebugLogger.d(TAG, "Combined image: ${combined.width}x${combined.height}")
 
+        // ── 3b. Resize về kích thước Arkose native (N × 200 × 400) ──
+        // Lý do: OMO/XEvil model trained trên ảnh Arkose original
+        //        (mỗi option 200×200, ref 200×200 ở bottom-left).
+        //        Composite ta tạo từ screenshot có kích thước nhỏ hơn nhiều
+        //        → resize lên đúng spec làm API accept và trả index correct.
+        // Test confirmed: 2144×274 → API fail, resize 3200×400 → "score: 100"
+        val targetW = totalOptions * 200
+        val targetH = 400
+        val finalImg = android.graphics.Bitmap.createScaledBitmap(combined, targetW, targetH, true)
+        DebugLogger.i(TAG, "Resized to Arkose native: ${finalImg.width}x${finalImg.height}")
+
         // Lưu ảnh final ra /Download/solver_image/ để debug (trước khi base64)
         val ts = System.currentTimeMillis()
-        ScreenCapture.saveDebugImage(combined, "slot${slot.index}_${ts}_n${totalOptions}.png")
+        ScreenCapture.saveDebugImage(finalImg, "slot${slot.index}_${ts}_n${totalOptions}.png")
 
-        val imageB64 = ScreenCapture.toBase64Png(combined)   // PNG như OMO dùng
+        val imageB64 = ScreenCapture.toBase64Png(finalImg)   // PNG như OMO dùng
 
         if (imageB64.isEmpty()) {
             DebugLogger.e(TAG, "imageBase64 is empty — cannot send to API")

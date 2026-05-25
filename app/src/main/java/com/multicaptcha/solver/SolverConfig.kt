@@ -50,11 +50,11 @@ object SolverConfig {
 
     // ── "Match This!" reference image crop ───────────────────────
     var matchCropLeft: Float
-        get() = getFloat("mcl", 25f);   set(v) = setFloat("mcl", v)
+        get() = getFloat("mcl", 25.5f); set(v) = setFloat("mcl", v)
     var matchCropRight: Float
         get() = getFloat("mcr", 48.5f); set(v) = setFloat("mcr", v)
     var matchCropTop: Float
-        get() = getFloat("mct", 45.6f); set(v) = setFloat("mct", v)
+        get() = getFloat("mct", 46f);   set(v) = setFloat("mct", v)
     var matchCropBot: Float
         get() = getFloat("mcb", 65f);   set(v) = setFloat("mcb", v)
 
@@ -74,7 +74,7 @@ object SolverConfig {
     var optionCropRight: Float
         get() = getFloat("ocr", 80f);   set(v) = setFloat("ocr", v)
     var optionCropTop: Float
-        get() = getFloat("oct", 45.6f); set(v) = setFloat("oct", v)
+        get() = getFloat("oct", 46f);   set(v) = setFloat("oct", v)
     var optionCropBot: Float
         get() = getFloat("ocb", 65f);   set(v) = setFloat("ocb", v)
 
@@ -92,9 +92,9 @@ object SolverConfig {
         startDetectTop = 60f;   startDetectBot = 69f;   startTapY = 66f
         arrowTapX = 89.3f;      arrowTapY = 71f
         submitDetectTop = 76.2f; submitDetectBot = 79f; submitTapY = 77.5f
-        matchCropLeft = 25f;    matchCropRight = 48.5f; matchCropTop = 45.6f; matchCropBot = 65f
+        matchCropLeft = 25.5f;  matchCropRight = 48.5f; matchCropTop = 46f;   matchCropBot = 65f
         questionCropLeft = 24f; questionCropRight = 93f; questionCropTop = 40f; questionCropBot = 44.7f
-        optionCropLeft = 48.5f; optionCropRight = 80f;  optionCropTop = 45.6f; optionCropBot = 65f
+        optionCropLeft = 48.5f; optionCropRight = 80f;  optionCropTop = 46f;  optionCropBot = 65f
         dotsCropLeft = 40f;     dotsCropRight = 95f;    dotsCropTop = 73.6f;   dotsCropBot = 75.5f
         // captchaOther intentionally not reset — user must re-enter
     }

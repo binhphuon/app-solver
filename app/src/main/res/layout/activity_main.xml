@@ -162,7 +162,7 @@
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchLeft" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="numberDecimal"
-                android:hint="25" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="25.5" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchRight" android:layout_width="48dp"
@@ -178,7 +178,7 @@
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchTop" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="numberDecimal"
-                android:hint="45.6" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="46" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etMatchBot" android:layout_width="48dp"
@@ -210,7 +210,7 @@
                 android:textSize="12sp"/>
             <EditText android:id="@+id/etOptTop" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="numberDecimal"
-                android:hint="45.6" android:textSize="12sp" android:textAlignment="center"/>
+                android:hint="46" android:textSize="12sp" android:textAlignment="center"/>
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:text=" – " android:textSize="12sp"/>
             <EditText android:id="@+id/etOptBot" android:layout_width="48dp"
