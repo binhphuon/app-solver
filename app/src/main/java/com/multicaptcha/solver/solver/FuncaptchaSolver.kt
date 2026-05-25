@@ -177,9 +177,25 @@ class FuncaptchaSolver(
         DebugLogger.i(TAG, "Captured $totalOptions options total")
 
         // ── 3. Ghép ảnh: options ngang + reference bên dưới ─────
+        // Arkose native: mỗi cell 200×200 vuông. Reference crop của ta thường hẹp
+        // hơn option crop (tall:thin) → cần PAD ref width = option width để khi resize
+        // lên 3200×400 (=N×200×400) thì ref cũng đúng 200×200, không bị stretch ngang.
         OverlayManager.updateSlotStep(slot.index, "Ghép $totalOptions ảnh...")
         val optionsStrip = ScreenCapture.stitchHorizontal(optionBitmaps)
-        val combined     = ScreenCapture.stackVertical(optionsStrip, refBmp)
+
+        // Pad ref to match option dimensions (option_w × option_h)
+        val optW = optionBitmaps[0].width
+        val optH = optionBitmaps[0].height
+        val refPadded = if (refBmp.width != optW || refBmp.height != optH) {
+            val p = android.graphics.Bitmap.createBitmap(optW, optH, android.graphics.Bitmap.Config.RGB_565)
+            val canvas = android.graphics.Canvas(p)
+            canvas.drawColor(android.graphics.Color.BLACK)
+            canvas.drawBitmap(refBmp, 0f, 0f, null)   // ref ở top-left, rest black
+            DebugLogger.d(TAG, "Ref padded: ${refBmp.width}x${refBmp.height} → ${p.width}x${p.height}")
+            p
+        } else refBmp
+
+        val combined = ScreenCapture.stackVertical(optionsStrip, refPadded)
         DebugLogger.d(TAG, "Combined image: ${combined.width}x${combined.height}")
 
         // ── 3b. Resize về kích thước Arkose native (N × 200 × 400) ──
