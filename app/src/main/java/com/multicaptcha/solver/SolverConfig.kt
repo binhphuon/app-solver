@@ -43,10 +43,18 @@ object SolverConfig {
     var submitTapY: Float
         get() = getFloat("subty", 77.5f); set(v) = setFloat("subty", v)
 
-    // ── Captcha question text (fallback khi OCR fail) ────────────
-    var captchaOther: String
-        get() = prefs?.getString("captcha_other", "") ?: ""
-        set(v) { prefs?.edit()?.putString("captcha_other", v)?.apply() }
+    // ── "Try Again" button (hiện khi captcha trả lời sai) ──────
+    var tryAgainDetectTop: Float
+        get() = getFloat("tadt", 69f);   set(v) = setFloat("tadt", v)
+    var tryAgainDetectBot: Float
+        get() = getFloat("tadb", 72f);   set(v) = setFloat("tadb", v)
+    var tryAgainTapY: Float
+        get() = getFloat("taty", 70.5f); set(v) = setFloat("taty", v)
+
+    // ── Solver provider ("omo" hoặc "tgsolve") ────────────────────
+    var solverProvider: String
+        get() = prefs?.getString("solver_provider", "omo") ?: "omo"
+        set(v) { prefs?.edit()?.putString("solver_provider", v)?.apply() }
 
     // ── "Match This!" reference image crop ───────────────────────
     var matchCropLeft: Float
@@ -92,11 +100,12 @@ object SolverConfig {
         startDetectTop = 60f;   startDetectBot = 69f;   startTapY = 66f
         arrowTapX = 89.3f;      arrowTapY = 71f
         submitDetectTop = 76.2f; submitDetectBot = 79f; submitTapY = 77.5f
+        tryAgainDetectTop = 69f; tryAgainDetectBot = 72f; tryAgainTapY = 70.5f
         matchCropLeft = 25.5f;  matchCropRight = 48.5f; matchCropTop = 46f;   matchCropBot = 65f
         questionCropLeft = 24f; questionCropRight = 93f; questionCropTop = 40f; questionCropBot = 44.7f
         optionCropLeft = 48.5f; optionCropRight = 80f;  optionCropTop = 46f;  optionCropBot = 65f
         dotsCropLeft = 40f;     dotsCropRight = 95f;    dotsCropTop = 73.6f;   dotsCropBot = 75.5f
-        // captchaOther intentionally not reset — user must re-enter
+        // solverProvider + API keys intentionally not reset — user nhập 1 lần là xong
     }
 
     fun toDebugString(): String = """

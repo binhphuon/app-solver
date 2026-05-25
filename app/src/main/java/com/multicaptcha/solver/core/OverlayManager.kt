@@ -311,6 +311,7 @@ class SlotStatusView(context: Context, private val index: Int) {
             SlotState.IDLE          -> "○ IDLE    " to Color.argb(180, 150, 150, 150)
             SlotState.START_VISIBLE -> "▶ START   " to Color.argb(255, 100, 200, 100)
             SlotState.PUZZLE_ACTIVE -> "⚡ PUZZLE  " to Color.argb(255, 255, 200, 50)
+            SlotState.TRY_AGAIN     -> "✗ RETRY   " to Color.argb(255, 255, 80, 80)
             SlotState.VERIFYING     -> "⏳ API...  " to Color.argb(255, 100, 180, 255)
             SlotState.SOLVED        -> "✓ SOLVED  " to Color.argb(255, 50, 220, 100)
         }

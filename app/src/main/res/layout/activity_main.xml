@@ -17,23 +17,33 @@
             android:textStyle="bold"
             android:layout_marginBottom="16dp"/>
 
+        <!-- Solver provider selection -->
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Solver provider:" android:textSize="12sp"
+            android:textStyle="bold" android:layout_marginBottom="2dp"/>
+
+        <RadioGroup
+            android:id="@+id/rgProvider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="6dp">
+            <RadioButton android:id="@+id/rbOmo"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="OMOcaptcha" android:checked="true"
+                android:layout_marginEnd="20dp"/>
+            <RadioButton android:id="@+id/rbTgsolve"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="tgsolve"/>
+        </RadioGroup>
+
         <EditText
             android:id="@+id/etApiKey"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="OMOcaptcha API Key (PKG_...)"
+            android:hint="API key (PKG_... cho OMO, tc_live_... cho tgsolve)"
             android:inputType="text"
             android:singleLine="true"
-            android:layout_marginBottom="8dp"/>
-
-        <EditText
-            android:id="@+id/etCaptchaOther"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Captcha question text (field &quot;other&quot;)"
-            android:inputType="textMultiLine"
-            android:minLines="2"
-            android:maxLines="4"
             android:layout_marginBottom="12dp"/>
 
         <TextView
@@ -152,6 +162,27 @@
             <EditText android:id="@+id/etSubTapY" android:layout_width="48dp"
                 android:layout_height="wrap_content" android:inputType="numberDecimal"
                 android:hint="77.5" android:textSize="12sp" android:textAlignment="center"/>
+        </LinearLayout>
+
+        <!-- Row: tryAgainBtn detect + tap -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:text="🟥 tryAgain detect:"
+                android:textSize="12sp"/>
+            <EditText android:id="@+id/etTryDetTop" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="69" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text=" – " android:textSize="12sp"/>
+            <EditText android:id="@+id/etTryDetBot" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="72" android:textSize="12sp" android:textAlignment="center"/>
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="  tap Y:" android:textSize="12sp"/>
+            <EditText android:id="@+id/etTryTapY" android:layout_width="48dp"
+                android:layout_height="wrap_content" android:inputType="numberDecimal"
+                android:hint="70.5" android:textSize="12sp" android:textAlignment="center"/>
         </LinearLayout>
 
         <!-- Row: matchThis crop X -->

@@ -23,8 +23,9 @@ class MainActivity : AppCompatActivity() {
     // Packages theo thứ tự slot: trái → phải (dùng chung với notification Start)
     private val TARGET_PACKAGES get() = SolverService.DEFAULT_PACKAGES
 
-    private val PREFS_NAME = "mcs_prefs"
-    private val KEY_API    = "api_key"
+    private val PREFS_NAME      = "mcs_prefs"
+    private val KEY_API_OMO     = "api_key_omo"
+    private val KEY_API_TGSOLVE = "api_key_tgsolve"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,8 +42,27 @@ class MainActivity : AppCompatActivity() {
         }
 
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        binding.etApiKey.setText(prefs.getString(KEY_API, ""))
-        binding.etCaptchaOther.setText(SolverConfig.captchaOther)
+
+        // Load provider radio + key của provider đó
+        fun keyNameFor(provider: String) = if (provider == "tgsolve") KEY_API_TGSOLVE else KEY_API_OMO
+        val savedProvider = SolverConfig.solverProvider
+        if (savedProvider == "tgsolve") binding.rbTgsolve.isChecked = true
+        else binding.rbOmo.isChecked = true
+        binding.etApiKey.setText(prefs.getString(keyNameFor(savedProvider), ""))
+
+        // Khi đổi radio: save key hiện tại vào provider cũ, load key của provider mới
+        binding.rgProvider.setOnCheckedChangeListener { _, checkedId ->
+            // Save key hiện tại vào provider đang select (trước khi đổi)
+            val current = binding.etApiKey.text.toString().trim()
+            val oldProvider = SolverConfig.solverProvider
+            if (current.isNotEmpty()) {
+                prefs.edit().putString(keyNameFor(oldProvider), current).apply()
+            }
+            // Switch provider
+            val newProvider = if (checkedId == R.id.rbTgsolve) "tgsolve" else "omo"
+            SolverConfig.solverProvider = newProvider
+            binding.etApiKey.setText(prefs.getString(keyNameFor(newProvider), ""))
+        }
 
         // Check root + grant accessibility
         if (RootShell.hasRoot()) {
@@ -82,23 +102,18 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Nhập API key trước!", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            val captchaOther = binding.etCaptchaOther.text.toString().trim()
-            if (captchaOther.isBlank()) {
-                Toast.makeText(this, "⚠️ Chưa nhập captcha question text!", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-            prefs.edit().putString(KEY_API, apiKey).apply()
-
-            // Lưu captcha question text
-            SolverConfig.captchaOther = binding.etCaptchaOther.text.toString().trim()
+            val provider = SolverConfig.solverProvider
+            // Save key dưới name của provider đang chọn
+            prefs.edit().putString(keyNameFor(provider), apiKey).apply()
 
             startForegroundService(Intent(this, SolverService::class.java).apply {
                 action = SolverService.ACTION_START
                 putExtra(SolverService.EXTRA_API_KEY, apiKey)
+                putExtra(SolverService.EXTRA_PROVIDER, provider)
                 putStringArrayListExtra(SolverService.EXTRA_PACKAGES, TARGET_PACKAGES)
             })
-            binding.tvStatus.text = "🟢 Solver đang chạy..."
-            Toast.makeText(this, "Đã bắt đầu!", Toast.LENGTH_SHORT).show()
+            binding.tvStatus.text = "🟢 Solver đang chạy ($provider)..."
+            Toast.makeText(this, "Đã bắt đầu ($provider)!", Toast.LENGTH_SHORT).show()
         }
 
         // ── Stop ─────────────────────────────────────────────────
@@ -219,6 +234,9 @@ class MainActivity : AppCompatActivity() {
         binding.etSubDetTop.setText(fmt(SolverConfig.submitDetectTop))
         binding.etSubDetBot.setText(fmt(SolverConfig.submitDetectBot))
         binding.etSubTapY.setText(fmt(SolverConfig.submitTapY))
+        binding.etTryDetTop.setText(fmt(SolverConfig.tryAgainDetectTop))
+        binding.etTryDetBot.setText(fmt(SolverConfig.tryAgainDetectBot))
+        binding.etTryTapY.setText(fmt(SolverConfig.tryAgainTapY))
         binding.etMatchLeft.setText(fmt(SolverConfig.matchCropLeft))
         binding.etMatchRight.setText(fmt(SolverConfig.matchCropRight))
         binding.etMatchTop.setText(fmt(SolverConfig.matchCropTop))
@@ -248,6 +266,9 @@ class MainActivity : AppCompatActivity() {
         SolverConfig.submitDetectTop = et(binding.etSubDetTop,    76.2f)
         SolverConfig.submitDetectBot = et(binding.etSubDetBot,    79f)
         SolverConfig.submitTapY      = et(binding.etSubTapY,      77.5f)
+        SolverConfig.tryAgainDetectTop = et(binding.etTryDetTop,  69f)
+        SolverConfig.tryAgainDetectBot = et(binding.etTryDetBot,  72f)
+        SolverConfig.tryAgainTapY      = et(binding.etTryTapY,    70.5f)
         SolverConfig.matchCropLeft   = et(binding.etMatchLeft,    25.5f)
         SolverConfig.matchCropRight  = et(binding.etMatchRight,   48.5f)
         SolverConfig.matchCropTop    = et(binding.etMatchTop,     46f)

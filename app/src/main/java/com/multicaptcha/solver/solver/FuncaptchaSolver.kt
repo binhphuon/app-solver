@@ -1,7 +1,6 @@
 package com.multicaptcha.solver.solver
 
 import android.graphics.Bitmap
-import com.multicaptcha.solver.SolverConfig
 import com.multicaptcha.solver.core.DebugLogger
 import com.multicaptcha.solver.core.OcrHelper
 import com.multicaptcha.solver.core.OverlayManager
@@ -14,13 +13,14 @@ enum class SlotState {
     IDLE,
     START_VISIBLE,
     PUZZLE_ACTIVE,
+    TRY_AGAIN,       // sai → màn "Try Again" hiện ra
     VERIFYING,
     SOLVED
 }
 
 class FuncaptchaSolver(
     val slot: SlotConfig,
-    private val apiClient: OmoApiClient
+    private val apiClient: CaptchaSolver
 ) {
     private val TAG = "Solver[${slot.index}]"
 
@@ -49,8 +49,20 @@ class FuncaptchaSolver(
             return SlotState.START_VISIBLE
         }
 
-        // 2. Nút Submit green → puzzle đang active. Áp dụng cho MỌI challenge trong session,
-        //    không phải chỉ challenge đầu.
+        // 2. Nút "Try Again" green → captcha trả lời sai, cần tap để thử lại
+        //    Check TRƯỚC Submit vì range Y có thể đứng giữa Start và Submit
+        val tryAgainRect = slot.tryAgainButtonRect
+        val tryAgainGreen = ScreenCapture.greenRatio(slotBitmap, tryAgainRect)
+        val tryAgainHit   = tryAgainGreen > GREEN_THRESHOLD
+        DebugLogger.greenDetect(slot.index, "tryAgain[${tryAgainRect.left},${tryAgainRect.top}-${tryAgainRect.right},${tryAgainRect.bottom}]",
+            tryAgainGreen, GREEN_THRESHOLD, tryAgainHit)
+
+        if (tryAgainHit) {
+            DebugLogger.slotState(slot.index, "TRY_AGAIN")
+            return SlotState.TRY_AGAIN
+        }
+
+        // 3. Nút Submit green → puzzle đang active. Áp dụng cho MỌI challenge trong session.
         val submitRect  = slot.submitButtonRect
         val submitGreen = ScreenCapture.greenRatio(slotBitmap, submitRect)
         val submitHit   = submitGreen > GREEN_THRESHOLD
@@ -62,9 +74,25 @@ class FuncaptchaSolver(
             return SlotState.PUZZLE_ACTIVE
         }
 
-        // 3. Không có start/submit green → IDLE (loading, đã solved xong, hoặc không phải captcha screen)
+        // 4. Không có green nào → IDLE
         DebugLogger.slotState(slot.index, "IDLE")
         return SlotState.IDLE
+    }
+
+    // ── Step: Tap Try Again ──────────────────────────────────────
+
+    suspend fun handleTryAgain() {
+        DebugLogger.sep("Slot[${slot.index}] HANDLE TRY AGAIN")
+        DebugLogger.slotAction(slot.index, "Tap 'Try Again' button")
+        OverlayManager.updateSlotStep(slot.index, "Sai → Tap Try Again...")
+
+        TouchInjector.tapInSlot(slot, slot.tryAgainRelX, slot.tryAgainRelY, "Try Again")
+        carouselPos  = 1
+        currentState = SlotState.PUZZLE_ACTIVE
+
+        OverlayManager.updateSlotStep(slot.index, "Chờ puzzle reload...")
+        DebugLogger.d(TAG, "Waiting 2000ms for puzzle to reload after Try Again...")
+        delay(2000)
     }
 
     // ── Step 1: Tap Start Puzzle ──────────────────────────────────
@@ -120,8 +148,6 @@ class FuncaptchaSolver(
             ?.trim()
 
         val questionText = cleanedOcr?.takeIf { it.length >= 10 }   // OCR có thể đọc rác → cần >=10 ký tự
-            ?: SolverConfig.captchaOther.ifBlank { null }
-
         DebugLogger.i(TAG, "════ Question text gửi API: \"${questionText ?: "<empty>"}\"")
 
         // ── Đếm dots (carousel indicator phía trên Submit) — NGUỒN DUY NHẤT cho tổng options ──

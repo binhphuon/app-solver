@@ -165,28 +165,27 @@ class SolverAccessibilityService : AccessibilityService() {
 
         private fun handleStartSolver() {
             DebugLogger.start()
-            // Đọc API key đã lưu qua MainActivity
-            val prefs  = getSharedPreferences("mcs_prefs", Context.MODE_PRIVATE)
-            val apiKey = prefs.getString("api_key", "")?.trim() ?: ""
+            // Đọc provider + API key của provider đang chọn từ prefs
+            val prefs    = getSharedPreferences("mcs_prefs", Context.MODE_PRIVATE)
+            val provider = com.multicaptcha.solver.SolverConfig.solverProvider
+            val keyName  = if (provider == "tgsolve") "api_key_tgsolve" else "api_key_omo"
+            val apiKey   = prefs.getString(keyName, "")?.trim() ?: ""
 
             if (apiKey.isBlank()) {
-                DebugLogger.e(TAG, "Notif Start: API key chưa được nhập — mở app vào nhập")
+                DebugLogger.e(TAG, "Notif Start: API key cho provider '$provider' chưa nhập")
                 android.widget.Toast.makeText(this@SolverAccessibilityService,
-                    "⚠ Mở app nhập API key trước!", android.widget.Toast.LENGTH_LONG).show()
+                    "⚠ Mở app nhập API key cho $provider!", android.widget.Toast.LENGTH_LONG).show()
                 return
-            }
-            if (com.multicaptcha.solver.SolverConfig.captchaOther.isBlank()) {
-                // OCR sẽ là primary, nhưng vẫn cảnh báo nhẹ
-                DebugLogger.w(TAG, "Notif Start: captchaOther rỗng (OCR là primary nên có thể chạy)")
             }
 
             try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
 
-            DebugLogger.i(TAG, "Notif Start: launching SolverService")
+            DebugLogger.i(TAG, "Notif Start: provider=$provider, launching SolverService")
             val intent = Intent(this@SolverAccessibilityService,
                 com.multicaptcha.solver.SolverService::class.java).apply {
                 action = com.multicaptcha.solver.SolverService.ACTION_START
                 putExtra(com.multicaptcha.solver.SolverService.EXTRA_API_KEY, apiKey)
+                putExtra(com.multicaptcha.solver.SolverService.EXTRA_PROVIDER, provider)
                 putStringArrayListExtra(
                     com.multicaptcha.solver.SolverService.EXTRA_PACKAGES,
                     com.multicaptcha.solver.SolverService.DEFAULT_PACKAGES
@@ -194,7 +193,7 @@ class SolverAccessibilityService : AccessibilityService() {
             }
             startForegroundService(intent)
             android.widget.Toast.makeText(this@SolverAccessibilityService,
-                "▶ Solver đang khởi động...", android.widget.Toast.LENGTH_SHORT).show()
+                "▶ Solver khởi động ($provider)...", android.widget.Toast.LENGTH_SHORT).show()
         }
 
         private fun handleStopSolver() {

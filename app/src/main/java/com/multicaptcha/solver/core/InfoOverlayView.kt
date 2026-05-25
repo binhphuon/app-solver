@@ -71,6 +71,7 @@ class InfoOverlayView(context: Context) : View(context) {
         SlotState.IDLE          -> Color.argb(220, 150, 150, 150)
         SlotState.START_VISIBLE -> Color.argb(255, 100, 255, 100)
         SlotState.PUZZLE_ACTIVE -> Color.argb(255, 255, 200, 50)
+        SlotState.TRY_AGAIN     -> Color.argb(255, 255, 80, 80)
         SlotState.VERIFYING     -> Color.argb(255, 100, 180, 255)
         SlotState.SOLVED        -> Color.argb(255, 50, 220, 100)
     }
@@ -79,6 +80,7 @@ class InfoOverlayView(context: Context) : View(context) {
         SlotState.IDLE          -> "○ IDLE"
         SlotState.START_VISIBLE -> "▶ START"
         SlotState.PUZZLE_ACTIVE -> "⚡ PUZZLE"
+        SlotState.TRY_AGAIN     -> "✗ RETRY"
         SlotState.VERIFYING     -> "⏳ API"
         SlotState.SOLVED        -> "✓ SOLVED"
     }

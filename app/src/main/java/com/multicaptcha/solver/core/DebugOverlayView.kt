@@ -37,6 +37,10 @@ class DebugOverlayView(context: Context) : View(context) {
     private val subFillPaint    = buildPaint(Color.argb(35,  50, 150, 255), style = Paint.Style.FILL)
     private val subStrokePaint  = buildPaint(Color.argb(220, 50, 150, 255), style = Paint.Style.STROKE, sw = 2.5f)
 
+    // Zone tryAgain (đỏ)
+    private val taFillPaint     = buildPaint(Color.argb(35,  255, 80, 80),  style = Paint.Style.FILL)
+    private val taStrokePaint   = buildPaint(Color.argb(220, 255, 80, 80),  style = Paint.Style.STROKE, sw = 2.5f)
+
     // Zone matchThis (cam)
     private val matchFillPaint  = buildPaint(Color.argb(35,  255, 165, 0),  style = Paint.Style.FILL)
     private val matchStrokePaint= buildPaint(Color.argb(220, 255, 165, 0),  style = Paint.Style.STROKE, sw = 2.5f)
@@ -143,6 +147,17 @@ class DebugOverlayView(context: Context) : View(context) {
             drawZoneRect(canvas, ox, oy, slot.submitButtonRect,
                 subFillPaint, subStrokePaint,
                 "submitBtn detect", Color.argb(220, 50, 150, 255))
+
+            // ── tryAgainButtonRect (đỏ) ────
+            drawZoneRect(canvas, ox, oy, slot.tryAgainButtonRect,
+                taFillPaint, taStrokePaint,
+                "tryAgain detect", Color.argb(220, 255, 80, 80))
+
+            // Crosshair: Try Again tap
+            drawCrossHair(canvas,
+                ox + w * slot.tryAgainRelX,
+                oy + h * slot.tryAgainRelY,
+                Color.argb(220, 255, 80, 80), "tap Try")
 
             // ── matchThisImageRect (cam) ────
             drawZoneRect(canvas, ox, oy, slot.matchThisImageRect,
@@ -252,6 +267,7 @@ class DebugOverlayView(context: Context) : View(context) {
         val entries = listOf(
             "■ startBtn detect"  to Color.argb(220, 50, 255, 50),
             "■ submitBtn detect" to Color.argb(220, 50, 150, 255),
+            "■ tryAgain detect"  to Color.argb(220, 255, 80, 80),
             "■ matchThis crop"   to Color.argb(220, 255, 165, 0),
             "■ option capture"   to Color.argb(220, 220, 80, 220),
             "■ OCR question"     to Color.argb(220, 255, 255, 100),

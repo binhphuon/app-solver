@@ -96,6 +96,16 @@ data class SlotConfig(
         (width  * 0.90f).toInt(),
         (height * SolverConfig.submitDetectBot / 100f).toInt()
     )
+
+    /** Nút "Try Again" (hiện sau khi captcha trả lời sai) */
+    val tryAgainButtonRect: Rect get() = Rect(
+        (width  * 0.10f).toInt(),
+        (height * SolverConfig.tryAgainDetectTop / 100f).toInt(),
+        (width  * 0.90f).toInt(),
+        (height * SolverConfig.tryAgainDetectBot / 100f).toInt()
+    )
+    val tryAgainRelX: Float get() = 0.50f
+    val tryAgainRelY: Float get() = SolverConfig.tryAgainTapY / 100f
 }
 
 object SlotManager {

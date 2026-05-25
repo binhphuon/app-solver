@@ -13,10 +13,12 @@ import com.multicaptcha.solver.core.OverlayManager
 import com.multicaptcha.solver.core.RootShell
 import com.multicaptcha.solver.core.ScreenCapture
 import com.multicaptcha.solver.core.WindowLayoutManager
+import com.multicaptcha.solver.solver.CaptchaSolver
 import com.multicaptcha.solver.solver.FuncaptchaSolver
 import com.multicaptcha.solver.solver.OmoApiClient
 import com.multicaptcha.solver.solver.SlotManager
 import com.multicaptcha.solver.solver.SlotState
+import com.multicaptcha.solver.solver.TgSolveApiClient
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -58,12 +60,14 @@ class SolverService : Service() {
     private fun startSolving(intent: Intent) {
         val apiKey   = intent.getStringExtra(EXTRA_API_KEY) ?: ""
         val packages = intent.getStringArrayListExtra(EXTRA_PACKAGES) ?: arrayListOf()
+        val provider = intent.getStringExtra(EXTRA_PROVIDER) ?: "omo"
 
         if (apiKey.isBlank() || packages.isEmpty()) {
             DebugLogger.e(TAG, "Missing apiKey or packages — stopping")
             stopSelf()
             return
         }
+        this.provider = provider
 
         DebugLogger.start()
         DebugLogger.i(TAG, "Service started")
@@ -99,6 +103,7 @@ class SolverService : Service() {
     // ── Main loop ────────────────────────────────────────────────
 
     private val solvedTotal = AtomicInteger(0)
+    @Volatile private var provider: String = "omo"
 
     private suspend fun runSolverLoop(apiKey: String, packages: List<String>) {
         // Lấy kích thước màn hình thực
@@ -113,7 +118,11 @@ class SolverService : Service() {
         DebugLogger.i(TAG, "Screen raw=${dm.widthPixels}x${dm.heightPixels} → landscape=${screenW}x${screenH} density=${dm.density}")
 
         val slots     = SlotManager.buildSlots(screenW, screenH, packages)
-        val apiClient = OmoApiClient(apiKey)
+        val apiClient: CaptchaSolver = when (provider.lowercase()) {
+            "tgsolve" -> TgSolveApiClient(apiKey)
+            else      -> OmoApiClient(apiKey)
+        }
+        DebugLogger.i(TAG, "Solver provider: ${apiClient.providerName}")
         val solvers   = slots.map { FuncaptchaSolver(it, apiClient) }
 
         // Truyền slot info cho debug overlay để vẽ zone lên màn hình
@@ -177,6 +186,10 @@ class SolverService : Service() {
                         OverlayManager.updateSlotStep(idx, "Tapping Start...")
                         solver.handleStart()
                     }
+                    SlotState.TRY_AGAIN -> {
+                        DebugLogger.slotAction(idx, "→ handleTryAgain() (captcha sai, tap Try Again)")
+                        solver.handleTryAgain()
+                    }
                     SlotState.PUZZLE_ACTIVE -> {
                         DebugLogger.slotAction(idx, "→ solvePuzzle()")
                         OverlayManager.updateSlotStep(idx, "Solving...")
@@ -236,6 +249,7 @@ class SolverService : Service() {
         const val ACTION_STOP    = "com.multicaptcha.STOP"
         const val EXTRA_API_KEY  = "api_key"
         const val EXTRA_PACKAGES = "packages"
+        const val EXTRA_PROVIDER = "provider"
 
         /** Default packages dùng cho nút Start trong notification */
         val DEFAULT_PACKAGES = arrayListOf("a.baba", "a.dcdc", "a.fefe")

@@ -1,6 +1,5 @@
 package com.multicaptcha.solver.solver
 
-import android.util.Base64
 import com.multicaptcha.solver.core.DebugLogger
 import kotlinx.coroutines.delay
 import okhttp3.MediaType.Companion.toMediaType
@@ -10,12 +9,9 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-data class TaskResult(
-    val index: Int,
-    val success: Boolean
-)
+class OmoApiClient(private val apiKey: String) : CaptchaSolver {
 
-class OmoApiClient(private val apiKey: String) {
+    override val providerName: String = "OMOcaptcha"
 
     private val TAG  = "OmoApiClient"
     private val JSON = "application/json; charset=utf-8".toMediaType()
@@ -30,14 +26,13 @@ class OmoApiClient(private val apiKey: String) {
 
     // ── Create task ──────────────────────────────────────────────
 
-    suspend fun createTask(imageBase64: String, question: String = "", slotIdx: Int = -1): String? {
+    override suspend fun createTask(imageBase64: String, question: String, slotIdx: Int): String? {
         DebugLogger.apiCreateTask(slotIdx, imageBase64.length * 3 / 4)
 
-        val otherText = question.ifEmpty { com.multicaptcha.solver.SolverConfig.captchaOther }
+        val otherText = question
         DebugLogger.d(TAG, "createTask other=\"$otherText\"")
-
         if (otherText.isBlank()) {
-            DebugLogger.e(TAG, "slot=$slotIdx — 'other' field is empty! Set captcha question in UI before starting.")
+            DebugLogger.w(TAG, "slot=$slotIdx — OCR text rỗng, API có thể fail")
         }
 
         val body = JSONObject().apply {
@@ -99,7 +94,7 @@ class OmoApiClient(private val apiKey: String) {
 
     // ── Poll result ──────────────────────────────────────────────
 
-    suspend fun getTaskResult(taskId: String, timeoutSec: Int = 30, slotIdx: Int = -1): TaskResult? {
+    override suspend fun getTaskResult(taskId: String, timeoutSec: Int, slotIdx: Int): TaskResult? {
         val body = JSONObject().apply {
             put("clientKey", apiKey)
             put("taskId", taskId)
