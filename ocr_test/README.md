@@ -52,7 +52,32 @@ python ocr_test.py slot.png --crop dots
 
 # Verbose: hiện X column ranges của từng dot detect được
 python ocr_test.py slot.png --crop dots -v
+
+# Ảnh đã crop sẵn vùng dots
+python ocr_test.py dots_only.png --mode dots -v
 ```
+
+**Tuning knobs** (nếu đếm sai):
+
+```bash
+--dot-dilate N        # half-window 1D max filter (bridge khoảng giữa ring). Default 6.
+                      # Tăng nếu outline ring lớn (vd 8-10)
+                      # Giảm nếu các dots quá gần nhau (bị merge nhầm)
+--dot-bright N        # threshold "pixel tối". Default 200. Tăng (220) nếu dots có
+                      # màu xám nhạt; giảm (180) nếu dots đậm nhưng background hơi tối
+--dot-cols-frac N     # column active nếu dark_count ≥ h / frac. Default 3.
+                      # Tăng (4-5) nếu strip dots mỏng nên ring center khó pass
+--dot-min-width N     # bỏ qua group hẹp hơn N cols. Default 2 (chống noise 1-pixel)
+```
+
+**Cách hoạt động** (port `ScreenCapture.countDots()` + cải tiến):
+
+1. Convert sang grayscale, tính brightness mỗi pixel
+2. Project lên trục X: mỗi cột đếm số pixel có brightness < `--dot-bright`
+3. **1D max filter (dilate)** trên trục X với half-window = `--dot-dilate` →
+   bridge khoảng giữa của outline ring (vốn rỗng) thành band liên tục
+4. Cột "active" nếu giá trị ≥ h / `--dot-cols-frac`
+5. Đếm nhóm liên tiếp các active cột (lọc nhóm < `--dot-min-width`) → số dots
 
 Output mẫu:
 ```

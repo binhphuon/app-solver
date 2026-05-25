@@ -48,12 +48,29 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def count_dots(pil_img, brightness_threshold: int = 200, min_dot_width: int = 1):
+def count_dots(pil_img,
+               brightness_threshold: int = 200,
+               dilate_x: int = 6,
+               col_threshold_frac: int = 3,
+               min_dot_width: int = 2):
     """
-    Mirror của ScreenCapture.countDots() (Kotlin).
-    Project pixel tối lên trục X → đếm nhóm columns liên tiếp = số dots.
+    Đếm dots. Cải tiến so với version đầu:
+      Outline dot là VÒNG TRÒN RỖNG → project lên X chỉ thấy 2 cạnh trái/phải
+      của ring, khoảng giữa rỗng (vì y giữa của ring không có pixel tối).
+      → version cũ count mỗi ring thành 2 groups mảnh.
 
-    Return (count, groups_list) — groups dùng để visualize.
+    Fix: 1D max filter (dilate) trên trục X TRƯỚC khi threshold.
+      Mỗi cột nhận giá trị max trong window ±dilate_x → bridge khoảng giữa
+      của ring (nhỏ) nhưng KHÔNG bridge khoảng giữa 2 dots liền kề (lớn hơn).
+
+    Args:
+        brightness_threshold: pixel < ngưỡng này = "tối"
+        dilate_x: half-window cho 1D max filter (default 6 — chỉnh nếu dots
+                  có inner radius khác). 0 = disable dilate.
+        col_threshold_frac: column active nếu dark count ≥ h / frac (default 3)
+        min_dot_width: bỏ qua group hẹp hơn (chống noise, default 2)
+
+    Return (count, groups_list[(start_col, end_col)])
     """
     import numpy as np
     arr = np.array(pil_img.convert("RGB"))
@@ -61,27 +78,34 @@ def count_dots(pil_img, brightness_threshold: int = 200, min_dot_width: int = 1)
     if w < 4 or h < 2:
         return 0, []
 
-    # Brightness trung bình mỗi pixel
     brightness = arr.mean(axis=2)
-    # Đếm pixel tối mỗi column
     dark_per_col = (brightness < brightness_threshold).sum(axis=0)
 
-    # Column "active" nếu có ≥ h/3 pixel tối
-    col_threshold = max(h // 3, 1)
+    # 1D max filter trên trục X → bridge khoảng giữa ring
+    if dilate_x > 0:
+        smoothed = np.empty_like(dark_per_col)
+        for i in range(w):
+            lo = max(0, i - dilate_x)
+            hi = min(w, i + dilate_x + 1)
+            smoothed[i] = dark_per_col[lo:hi].max()
+    else:
+        smoothed = dark_per_col
+
+    col_threshold = max(h // col_threshold_frac, 1)
 
     dots = 0
     in_group = False
-    group_len = 0
     group_start = 0
+    group_len = 0
     groups = []
 
     for x in range(w):
-        active = dark_per_col[x] >= col_threshold
+        active = smoothed[x] >= col_threshold
         if active:
             if not in_group:
                 in_group = True
-                group_len = 1
                 group_start = x
+                group_len = 1
             else:
                 group_len += 1
         else:
@@ -179,7 +203,8 @@ def save_crop(pil_img, src_path: Path, out_dir: Path, crop_label: str):
 
 
 def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
-               invert: bool, verbose: bool, output_dir: Path = None):
+               invert: bool, verbose: bool, output_dir: Path = None,
+               dot_params: dict = None):
     print()
     print(f"════ {path}")
 
@@ -204,7 +229,18 @@ def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
 
     if mode == "dots":
         # ── Dot count (ScreenCapture.countDots) ──
-        count, groups = count_dots(img)
+        dp = dot_params or {}
+        count, groups = count_dots(
+            img,
+            brightness_threshold=dp.get("brightness", 200),
+            dilate_x=dp.get("dilate", 6),
+            col_threshold_frac=dp.get("cols_frac", 3),
+            min_dot_width=dp.get("min_width", 2),
+        )
+        print(f"  Dot params    : bright={dp.get('brightness', 200)} "
+              f"dilate={dp.get('dilate', 6)} "
+              f"cols_frac={dp.get('cols_frac', 3)} "
+              f"min_width={dp.get('min_width', 2)}")
         print(f"  Dot count     : {count}")
         if verbose and groups:
             print(f"  Dot groups (X column ranges):")
@@ -269,6 +305,24 @@ def main():
         "-v", "--verbose", action="store_true",
         help="Verbose: OCR blocks + confidence, hoặc dot column ranges",
     )
+    # Dot tuning knobs
+    p.add_argument(
+        "--dot-dilate", type=int, default=6,
+        help="1D max filter half-window trên trục X (bridge khoảng giữa ring). "
+             "Tăng nếu ring inner radius lớn. 0 = disable. Default 6.",
+    )
+    p.add_argument(
+        "--dot-bright", type=int, default=200,
+        help="Brightness threshold cho 'pixel tối' (0-255). Default 200.",
+    )
+    p.add_argument(
+        "--dot-cols-frac", type=int, default=3,
+        help="Column active nếu dark count ≥ h / frac. Default 3 (= h/3).",
+    )
+    p.add_argument(
+        "--dot-min-width", type=int, default=2,
+        help="Bỏ qua group hẹp hơn (chống noise). Default 2.",
+    )
     args = p.parse_args()
 
     # Parse --crop
@@ -289,6 +343,13 @@ def main():
 
     output_dir = Path(args.output_dir) if args.output_dir else None
 
+    dot_params = {
+        "brightness": args.dot_bright,
+        "dilate":     args.dot_dilate,
+        "cols_frac":  args.dot_cols_frac,
+        "min_width":  args.dot_min_width,
+    }
+
     # Chỉ load EasyOCR khi cần (mode=ocr); mode=dots không cần
     reader = None
     if mode == "ocr":
@@ -305,7 +366,7 @@ def main():
     target = Path(args.path)
     if target.is_file():
         test_image(reader, target, mode, crop_pct, crop_label,
-                   args.invert, args.verbose, output_dir)
+                   args.invert, args.verbose, output_dir, dot_params)
     elif target.is_dir():
         exts = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
         images = sorted(p for p in target.iterdir() if p.suffix.lower() in exts)
@@ -315,7 +376,7 @@ def main():
         print(f"Tìm thấy {len(images)} ảnh trong {target}")
         for img in images:
             test_image(reader, img, mode, crop_pct, crop_label,
-                       args.invert, args.verbose, output_dir)
+                       args.invert, args.verbose, output_dir, dot_params)
     else:
         print(f"Không tồn tại: {target}")
         sys.exit(1)
