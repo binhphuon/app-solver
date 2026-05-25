@@ -50,76 +50,79 @@ def normalize(text: str) -> str:
 
 def count_dots(pil_img,
                brightness_threshold: int = 200,
-               dilate_x: int = 6,
-               col_threshold_frac: int = 3,
-               min_dot_width: int = 2):
+               closing_iter: int = 1,
+               min_blob_pixels: int = 4):
     """
-    Đếm dots. Cải tiến so với version đầu:
-      Outline dot là VÒNG TRÒN RỖNG → project lên X chỉ thấy 2 cạnh trái/phải
-      của ring, khoảng giữa rỗng (vì y giữa của ring không có pixel tối).
-      → version cũ count mỗi ring thành 2 groups mảnh.
+    Đếm dots bằng Connected Component Labeling 2D (8-connectivity).
 
-    Fix: 1D max filter (dilate) trên trục X TRƯỚC khi threshold.
-      Mỗi cột nhận giá trị max trong window ±dilate_x → bridge khoảng giữa
-      của ring (nhỏ) nhưng KHÔNG bridge khoảng giữa 2 dots liền kề (lớn hơn).
+    Tại sao đổi từ column-projection sang CC:
+      Filled dot và outline ring đều là 1 connected blob → đếm blob trực tiếp.
+      Column projection bị mơ hồ giữa "khoảng giữa ring" (cần bridge) và
+      "khoảng giữa 2 dots adjacent" (KHÔNG được bridge) — khi 2 khoảng này
+      gần bằng nhau (dot strip nhỏ) → không phân biệt được.
 
     Args:
-        brightness_threshold: pixel < ngưỡng này = "tối"
-        dilate_x: half-window cho 1D max filter (default 6 — chỉnh nếu dots
-                  có inner radius khác). 0 = disable dilate.
-        col_threshold_frac: column active nếu dark count ≥ h / frac (default 3)
-        min_dot_width: bỏ qua group hẹp hơn (chống noise, default 2)
+        brightness_threshold: pixel < threshold = "dark"
+        closing_iter: morphological close (dilate→erode) lần này để fill
+                      gap nhỏ trong ring outline. Default 1, 0 = disable.
+        min_blob_pixels: bỏ blob nhỏ hơn ngần này pixels (chống noise).
 
-    Return (count, groups_list[(start_col, end_col)])
+    Return (count, components_list) — mỗi component có:
+        x_range, y_range, pixels (số pixel tối thuộc blob)
     """
     import numpy as np
-    arr = np.array(pil_img.convert("RGB"))
-    h, w, _ = arr.shape
+    from PIL import Image as PILImage, ImageFilter
+
+    arr = np.array(pil_img.convert("L"))   # grayscale
+    h, w = arr.shape
     if w < 4 or h < 2:
         return 0, []
 
-    brightness = arr.mean(axis=2)
-    dark_per_col = (brightness < brightness_threshold).sum(axis=0)
+    binary = arr < brightness_threshold
 
-    # 1D max filter trên trục X → bridge khoảng giữa ring
-    if dilate_x > 0:
-        smoothed = np.empty_like(dark_per_col)
-        for i in range(w):
-            lo = max(0, i - dilate_x)
-            hi = min(w, i + dilate_x + 1)
-            smoothed[i] = dark_per_col[lo:hi].max()
-    else:
-        smoothed = dark_per_col
+    # Morphological closing — fill khoảng hở nhỏ trong outline ring
+    if closing_iter > 0:
+        bin_img = PILImage.fromarray((binary.astype(np.uint8) * 255))
+        for _ in range(closing_iter):
+            bin_img = bin_img.filter(ImageFilter.MaxFilter(3))   # dilate
+        for _ in range(closing_iter):
+            bin_img = bin_img.filter(ImageFilter.MinFilter(3))   # erode
+        binary = np.array(bin_img) > 128
 
-    col_threshold = max(h // col_threshold_frac, 1)
+    # Connected components: BFS 8-connectivity
+    labels = np.zeros((h, w), dtype=np.int32)
+    components = []
+    next_label = 0
 
-    dots = 0
-    in_group = False
-    group_start = 0
-    group_len = 0
-    groups = []
+    for y in range(h):
+        for x in range(w):
+            if binary[y, x] and labels[y, x] == 0:
+                next_label += 1
+                ys_list, xs_list = [], []
+                stack = [(y, x)]
+                while stack:
+                    cy, cx = stack.pop()
+                    if not (0 <= cy < h and 0 <= cx < w):
+                        continue
+                    if not binary[cy, cx] or labels[cy, cx] != 0:
+                        continue
+                    labels[cy, cx] = next_label
+                    ys_list.append(cy)
+                    xs_list.append(cx)
+                    for dy in (-1, 0, 1):
+                        for dx in (-1, 0, 1):
+                            if dy or dx:
+                                stack.append((cy + dy, cx + dx))
 
-    for x in range(w):
-        active = smoothed[x] >= col_threshold
-        if active:
-            if not in_group:
-                in_group = True
-                group_start = x
-                group_len = 1
-            else:
-                group_len += 1
-        else:
-            if in_group:
-                if group_len >= min_dot_width:
-                    dots += 1
-                    groups.append((group_start, x - 1))
-                in_group = False
-                group_len = 0
-    if in_group and group_len >= min_dot_width:
-        dots += 1
-        groups.append((group_start, w - 1))
+                if len(xs_list) >= min_blob_pixels:
+                    components.append({
+                        "pixels":  len(xs_list),
+                        "x_range": (min(xs_list), max(xs_list)),
+                        "y_range": (min(ys_list), max(ys_list)),
+                    })
 
-    return dots, groups
+    components.sort(key=lambda c: c["x_range"][0])
+    return len(components), components
 
 
 def parse_challenge_counter(text: str):
@@ -228,24 +231,25 @@ def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
             print(f"  Saved crop    : {saved}")
 
     if mode == "dots":
-        # ── Dot count (ScreenCapture.countDots) ──
+        # ── Dot count: Connected Components 2D ──
         dp = dot_params or {}
-        count, groups = count_dots(
+        count, comps = count_dots(
             img,
             brightness_threshold=dp.get("brightness", 200),
-            dilate_x=dp.get("dilate", 6),
-            col_threshold_frac=dp.get("cols_frac", 3),
-            min_dot_width=dp.get("min_width", 2),
+            closing_iter=dp.get("closing", 1),
+            min_blob_pixels=dp.get("min_pixels", 4),
         )
         print(f"  Dot params    : bright={dp.get('brightness', 200)} "
-              f"dilate={dp.get('dilate', 6)} "
-              f"cols_frac={dp.get('cols_frac', 3)} "
-              f"min_width={dp.get('min_width', 2)}")
+              f"closing={dp.get('closing', 1)} "
+              f"min_pixels={dp.get('min_pixels', 4)}")
         print(f"  Dot count     : {count}")
-        if verbose and groups:
-            print(f"  Dot groups (X column ranges):")
-            for i, (s, e) in enumerate(groups, 1):
-                print(f"    Dot {i}: cols {s}-{e}  (width={e - s + 1}px)")
+        if verbose and comps:
+            print(f"  Components (sorted theo X):")
+            for i, c in enumerate(comps, 1):
+                xr = c["x_range"]
+                yr = c["y_range"]
+                print(f"    #{i:2d}: X={xr[0]}-{xr[1]}  Y={yr[0]}-{yr[1]}  "
+                      f"({c['pixels']} px)")
     else:
         # ── OCR mode (default) ──
         try:
@@ -305,23 +309,20 @@ def main():
         "-v", "--verbose", action="store_true",
         help="Verbose: OCR blocks + confidence, hoặc dot column ranges",
     )
-    # Dot tuning knobs
-    p.add_argument(
-        "--dot-dilate", type=int, default=6,
-        help="1D max filter half-window trên trục X (bridge khoảng giữa ring). "
-             "Tăng nếu ring inner radius lớn. 0 = disable. Default 6.",
-    )
+    # Dot tuning knobs (algorithm: connected components 2D)
     p.add_argument(
         "--dot-bright", type=int, default=200,
-        help="Brightness threshold cho 'pixel tối' (0-255). Default 200.",
+        help="Brightness threshold cho 'pixel tối' (0-255). Default 200. "
+             "Tăng (220) nếu dots xám nhạt; giảm (180) nếu background hơi tối.",
     )
     p.add_argument(
-        "--dot-cols-frac", type=int, default=3,
-        help="Column active nếu dark count ≥ h / frac. Default 3 (= h/3).",
+        "--dot-closing", type=int, default=1,
+        help="Số lần morphological close (dilate→erode) để fill gap nhỏ "
+             "trong ring outline bị đứt. 0 = disable. Default 1.",
     )
     p.add_argument(
-        "--dot-min-width", type=int, default=2,
-        help="Bỏ qua group hẹp hơn (chống noise). Default 2.",
+        "--dot-min-pixels", type=int, default=4,
+        help="Bỏ blob nhỏ hơn ngần này pixels (chống noise). Default 4.",
     )
     args = p.parse_args()
 
@@ -344,10 +345,9 @@ def main():
     output_dir = Path(args.output_dir) if args.output_dir else None
 
     dot_params = {
-        "brightness": args.dot_bright,
-        "dilate":     args.dot_dilate,
-        "cols_frac":  args.dot_cols_frac,
-        "min_width":  args.dot_min_width,
+        "brightness":  args.dot_bright,
+        "closing":     args.dot_closing,
+        "min_pixels":  args.dot_min_pixels,
     }
 
     # Chỉ load EasyOCR khi cần (mode=ocr); mode=dots không cần

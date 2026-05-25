@@ -60,36 +60,45 @@ python ocr_test.py dots_only.png --mode dots -v
 **Tuning knobs** (nếu đếm sai):
 
 ```bash
---dot-dilate N        # half-window 1D max filter (bridge khoảng giữa ring). Default 6.
-                      # Tăng nếu outline ring lớn (vd 8-10)
-                      # Giảm nếu các dots quá gần nhau (bị merge nhầm)
---dot-bright N        # threshold "pixel tối". Default 200. Tăng (220) nếu dots có
-                      # màu xám nhạt; giảm (180) nếu dots đậm nhưng background hơi tối
---dot-cols-frac N     # column active nếu dark_count ≥ h / frac. Default 3.
-                      # Tăng (4-5) nếu strip dots mỏng nên ring center khó pass
---dot-min-width N     # bỏ qua group hẹp hơn N cols. Default 2 (chống noise 1-pixel)
+--dot-bright N        # threshold "pixel tối" (0-255). Default 200.
+                      # Tăng (220) nếu dots xám nhạt; giảm (180) nếu background hơi tối
+--dot-closing N       # số lần morphological close (dilate→erode) để fill gap
+                      # nhỏ trong ring outline bị đứt. Default 1, 0 = disable
+--dot-min-pixels N    # bỏ blob nhỏ hơn N pixels (chống noise). Default 4
 ```
 
-**Cách hoạt động** (port `ScreenCapture.countDots()` + cải tiến):
+**Cách hoạt động** (Connected Component Labeling 2D, 8-connectivity):
 
-1. Convert sang grayscale, tính brightness mỗi pixel
-2. Project lên trục X: mỗi cột đếm số pixel có brightness < `--dot-bright`
-3. **1D max filter (dilate)** trên trục X với half-window = `--dot-dilate` →
-   bridge khoảng giữa của outline ring (vốn rỗng) thành band liên tục
-4. Cột "active" nếu giá trị ≥ h / `--dot-cols-frac`
-5. Đếm nhóm liên tiếp các active cột (lọc nhóm < `--dot-min-width`) → số dots
+1. Convert sang grayscale, threshold thành binary (`pixel < bright = dark`)
+2. **Morphological closing** (dilate→erode) `closing_iter` lần — fill các gap
+   nhỏ trong outline ring nếu stroke bị đứt
+3. **BFS** từng pixel chưa label, mở rộng theo 8-connectivity → mỗi blob
+   là 1 connected component
+4. Bỏ blob < `--dot-min-pixels` (noise)
+5. Số components còn lại = số dots
 
-Output mẫu:
+**Tại sao đổi từ column-projection sang CC?**
+
+Column-projection (version cũ) project tất cả pixel tối lên trục X rồi đếm
+nhóm columns. Gặp outline ring (vòng rỗng), khoảng giữa ring không có pixel
+tối → cần dilate để bridge. Nhưng khi 2 dots adjacent gần nhau, khoảng giữa
+2 dots ≈ khoảng giữa ring → không phân biệt được, gây under/over-count.
+
+CC labeling 2D giữ thông tin Y cũng nên distinguish chính xác:
+- Filled dot = 1 blob (solid circle)
+- Outline ring = 1 blob (ring là 1 closed loop)
+- 2 dots adjacent = 2 blobs riêng (rỗng giữa rõ ràng)
+
+Output mẫu (verbose):
 ```
-════ slot.png
-  Crop          : L=40 T=73.6 R=95 B=75.5 (%)   → pixels (220, 794, 522, 815)
-  Dot count     : 5
-  Dot groups (X column ranges):
-    Dot 1: cols 12-18  (width=7px)
-    Dot 2: cols 42-48  (width=7px)
-    Dot 3: cols 72-78  (width=7px)
-    Dot 4: cols 102-108 (width=7px)
-    Dot 5: cols 132-138 (width=7px)
+════ dot.png
+  Dot params    : bright=200 closing=1 min_pixels=4
+  Dot count     : 14
+  Components (sorted theo X):
+    # 1: X=10-17  Y=2-9   (52 px)        ← filled dot
+    # 2: X=24-33  Y=2-9   (28 px)        ← outline ring
+    # 3: X=38-47  Y=2-9   (28 px)
+    ...
 ```
 
 ### Lưu ảnh đã crop ra folder
