@@ -49,6 +49,19 @@ class OmoApiClient(private val apiKey: String) {
             })
         }.toString()
 
+        // Log payload (masked key + shortened image) để debug
+        val maskedKey = if (apiKey.length > 12) "${apiKey.take(8)}...${apiKey.takeLast(4)}" else "<short>"
+        val payloadPreview = JSONObject().apply {
+            put("clientKey", maskedKey)
+            put("task", JSONObject().apply {
+                put("type", "FuncaptchaImageTask")
+                put("imageBase64", "<${imageBase64.length} chars, ~${imageBase64.length * 3 / 4} bytes>")
+                put("other", otherText)
+            })
+        }
+        DebugLogger.i(TAG, "════ POST $CREATE_URL")
+        DebugLogger.i(TAG, "════ payload: $payloadPreview")
+
         return try {
             DebugLogger.d(TAG, "POST $CREATE_URL")
             val req = Request.Builder()

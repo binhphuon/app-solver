@@ -30,9 +30,13 @@ object OverlayManager {
     private val slotViews = mutableListOf<SlotStatusView>()
 
     private var debugView: DebugOverlayView? = null
+    private var infoView:  InfoOverlayView?  = null
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private var isShowing   = false
+
+    @Volatile var debugOverlaysVisible: Boolean = false
+        private set
 
     // ── Setup ────────────────────────────────────────────────────
 
@@ -55,6 +59,9 @@ object OverlayManager {
             buildOverlayView(context, slotCount)
             showOverlay()
             showDebugOverlay(context)
+            showInfoOverlay(context, slotCount)
+            // Default: zones OFF cho clean OCR/screencap; info overlay luôn ON
+            applyDebugVisibility()
         }
     }
 
@@ -62,10 +69,33 @@ object OverlayManager {
         mainHandler.post {
             try { rootView?.let { windowManager?.removeView(it) } } catch (_: Exception) {}
             try { debugView?.let { windowManager?.removeView(it) } } catch (_: Exception) {}
+            try { infoView?.let  { windowManager?.removeView(it) } } catch (_: Exception) {}
             rootView  = null
             debugView = null
+            infoView  = null
             isShowing = false
         }
+    }
+
+    // ── Toggle debug overlays (status + zones) — info overlay không bị ảnh hưởng ──
+
+    fun toggleDebugOverlays() {
+        debugOverlaysVisible = !debugOverlaysVisible
+        DebugLogger.i(TAG, "Debug overlays → ${if (debugOverlaysVisible) "VISIBLE" else "HIDDEN"}")
+        mainHandler.post { applyDebugVisibility() }
+    }
+
+    private fun applyDebugVisibility() {
+        val vis = if (debugOverlaysVisible) View.VISIBLE else View.GONE
+        rootView?.visibility  = vis
+        debugView?.visibility = vis
+        // infoView KHÔNG bị ảnh hưởng — luôn visible
+    }
+
+    // ── Info overlay update (OCR text + dot count per slot) ──
+
+    fun updateSlotInfo(index: Int, ocrText: String?, dotCount: Int) {
+        mainHandler.post { infoView?.updateSlot(index, ocrText, dotCount) }
     }
 
     // ── Update methods (thread-safe) ─────────────────────────────
@@ -160,6 +190,28 @@ object OverlayManager {
             DebugLogger.i(TAG, "Overlay shown")
         } catch (e: Exception) {
             DebugLogger.e(TAG, "Failed to show overlay", e)
+        }
+    }
+
+    private fun showInfoOverlay(context: Context, slotCount: Int) {
+        if (windowManager == null) return
+        val iv = InfoOverlayView(context).apply { setSlotCount(slotCount) }
+        infoView = iv
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+        try {
+            windowManager?.addView(iv, params)
+            DebugLogger.i(TAG, "Info overlay shown (always visible — Y 10-35%)")
+        } catch (e: Exception) {
+            DebugLogger.e(TAG, "Failed to add info overlay", e)
         }
     }
 

@@ -31,71 +31,71 @@ object SolverConfig {
 
     // ── Right arrow (→) ─────────────────────────────────────────
     var arrowTapX: Float
-        get() = getFloat("arx", 90f); set(v) = setFloat("arx", v)
+        get() = getFloat("arx", 89.3f); set(v) = setFloat("arx", v)
     var arrowTapY: Float
-        get() = getFloat("ary", 71f); set(v) = setFloat("ary", v)
+        get() = getFloat("ary", 71f);   set(v) = setFloat("ary", v)
 
     // ── Submit button ────────────────────────────────────────────
     var submitDetectTop: Float
-        get() = getFloat("sudt", 75f); set(v) = setFloat("sudt", v)
+        get() = getFloat("sudt", 76.2f); set(v) = setFloat("sudt", v)
     var submitDetectBot: Float
-        get() = getFloat("sudb", 82f); set(v) = setFloat("sudb", v)
+        get() = getFloat("sudb", 79f);   set(v) = setFloat("sudb", v)
     var submitTapY: Float
-        get() = getFloat("subty", 77f); set(v) = setFloat("subty", v)
+        get() = getFloat("subty", 77.5f); set(v) = setFloat("subty", v)
 
-    // ── Captcha question text (sent as "other" to OMOcaptcha API) ─
+    // ── Captcha question text (fallback khi OCR fail) ────────────
     var captchaOther: String
         get() = prefs?.getString("captcha_other", "") ?: ""
         set(v) { prefs?.edit()?.putString("captcha_other", v)?.apply() }
 
     // ── "Match This!" reference image crop ───────────────────────
     var matchCropLeft: Float
-        get() = getFloat("mcl", 25f); set(v) = setFloat("mcl", v)
+        get() = getFloat("mcl", 25f);   set(v) = setFloat("mcl", v)
     var matchCropRight: Float
-        get() = getFloat("mcr", 49f); set(v) = setFloat("mcr", v)
+        get() = getFloat("mcr", 48.5f); set(v) = setFloat("mcr", v)
     var matchCropTop: Float
-        get() = getFloat("mct", 45f); set(v) = setFloat("mct", v)
+        get() = getFloat("mct", 45.6f); set(v) = setFloat("mct", v)
     var matchCropBot: Float
-        get() = getFloat("mcb", 65f); set(v) = setFloat("mcb", v)
+        get() = getFloat("mcb", 65f);   set(v) = setFloat("mcb", v)
 
     // ── Vùng câu hỏi (OCR) — chỉnh được cả X và Y ────────────────
     var questionCropLeft: Float
-        get() = getFloat("qcl", 2f);  set(v) = setFloat("qcl", v)
+        get() = getFloat("qcl", 24f);   set(v) = setFloat("qcl", v)
     var questionCropRight: Float
-        get() = getFloat("qcr", 98f); set(v) = setFloat("qcr", v)
+        get() = getFloat("qcr", 93f);   set(v) = setFloat("qcr", v)
     var questionCropTop: Float
-        get() = getFloat("qct", 30f); set(v) = setFloat("qct", v)
+        get() = getFloat("qct", 40f);   set(v) = setFloat("qct", v)
     var questionCropBot: Float
-        get() = getFloat("qcb", 44f); set(v) = setFloat("qcb", v)
+        get() = getFloat("qcb", 44.7f); set(v) = setFloat("qcb", v)
 
     // ── Vùng option hiện tại (carousel) — chỉnh được cả X và Y ───
     var optionCropLeft: Float
-        get() = getFloat("ocl", 51f); set(v) = setFloat("ocl", v)
+        get() = getFloat("ocl", 48.5f); set(v) = setFloat("ocl", v)
     var optionCropRight: Float
-        get() = getFloat("ocr", 98f); set(v) = setFloat("ocr", v)
+        get() = getFloat("ocr", 80f);   set(v) = setFloat("ocr", v)
     var optionCropTop: Float
-        get() = getFloat("oct", 45f); set(v) = setFloat("oct", v)
+        get() = getFloat("oct", 45.6f); set(v) = setFloat("oct", v)
     var optionCropBot: Float
-        get() = getFloat("ocb", 65f); set(v) = setFloat("ocb", v)
+        get() = getFloat("ocb", 65f);   set(v) = setFloat("ocb", v)
 
     // ── Vùng dots count (carousel page indicator phía trên Submit) — X+Y ─
     var dotsCropLeft: Float
-        get() = getFloat("dcl", 10f); set(v) = setFloat("dcl", v)
+        get() = getFloat("dcl", 40f);   set(v) = setFloat("dcl", v)
     var dotsCropRight: Float
-        get() = getFloat("dcr", 90f); set(v) = setFloat("dcr", v)
+        get() = getFloat("dcr", 95f);   set(v) = setFloat("dcr", v)
     var dotsCropTop: Float
-        get() = getFloat("dct", 70f); set(v) = setFloat("dct", v)
+        get() = getFloat("dct", 73.6f); set(v) = setFloat("dct", v)
     var dotsCropBot: Float
-        get() = getFloat("dcb", 74f); set(v) = setFloat("dcb", v)
+        get() = getFloat("dcb", 75.5f); set(v) = setFloat("dcb", v)
 
     fun resetDefaults() {
-        startDetectTop = 60f; startDetectBot = 69f; startTapY = 66f
-        arrowTapX = 90f;  arrowTapY = 71f
-        submitDetectTop = 75f; submitDetectBot = 82f; submitTapY = 77f
-        matchCropLeft = 25f; matchCropRight = 49f; matchCropTop = 45f; matchCropBot = 65f
-        questionCropLeft = 2f; questionCropRight = 98f; questionCropTop = 30f; questionCropBot = 44f
-        optionCropLeft = 51f; optionCropRight = 98f; optionCropTop = 45f; optionCropBot = 65f
-        dotsCropLeft = 10f; dotsCropRight = 90f; dotsCropTop = 70f; dotsCropBot = 74f
+        startDetectTop = 60f;   startDetectBot = 69f;   startTapY = 66f
+        arrowTapX = 89.3f;      arrowTapY = 71f
+        submitDetectTop = 76.2f; submitDetectBot = 79f; submitTapY = 77.5f
+        matchCropLeft = 25f;    matchCropRight = 48.5f; matchCropTop = 45.6f; matchCropBot = 65f
+        questionCropLeft = 24f; questionCropRight = 93f; questionCropTop = 40f; questionCropBot = 44.7f
+        optionCropLeft = 48.5f; optionCropRight = 80f;  optionCropTop = 45.6f; optionCropBot = 65f
+        dotsCropLeft = 40f;     dotsCropRight = 95f;    dotsCropTop = 73.6f;   dotsCropBot = 75.5f
         // captchaOther intentionally not reset — user must re-enter
     }
 

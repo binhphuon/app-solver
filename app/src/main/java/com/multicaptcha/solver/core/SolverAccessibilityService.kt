@@ -30,6 +30,7 @@ class SolverAccessibilityService : AccessibilityService() {
         private const val NOTIF_ID     = 42
         const val ACTION_START_SOLVER  = "com.multicaptcha.NOTIF_START"
         const val ACTION_STOP_SOLVER   = "com.multicaptcha.NOTIF_STOP"
+        const val ACTION_TOGGLE_OVERLAY= "com.multicaptcha.NOTIF_TOGGLE_OVERLAY"
 
         @Volatile private var instance: SolverAccessibilityService? = null
 
@@ -148,9 +149,18 @@ class SolverAccessibilityService : AccessibilityService() {
     private val notifReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context?, intent: Intent?) {
             when (intent?.action) {
-                ACTION_START_SOLVER -> handleStartSolver()
-                ACTION_STOP_SOLVER  -> handleStopSolver()
+                ACTION_START_SOLVER   -> handleStartSolver()
+                ACTION_STOP_SOLVER    -> handleStopSolver()
+                ACTION_TOGGLE_OVERLAY -> handleToggleOverlay()
             }
+        }
+
+        private fun handleToggleOverlay() {
+            OverlayManager.toggleDebugOverlays()
+            val state = if (OverlayManager.debugOverlaysVisible) "ON" else "OFF"
+            android.widget.Toast.makeText(this@SolverAccessibilityService,
+                "👁 Overlay zones: $state", android.widget.Toast.LENGTH_SHORT).show()
+            try { RootShell.execSilent("cmd statusbar collapse") } catch (_: Exception) {}
         }
 
         private fun handleStartSolver() {
@@ -226,6 +236,7 @@ class SolverAccessibilityService : AccessibilityService() {
             val filter = IntentFilter().apply {
                 addAction(ACTION_START_SOLVER)
                 addAction(ACTION_STOP_SOLVER)
+                addAction(ACTION_TOGGLE_OVERLAY)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(notifReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -276,19 +287,21 @@ class SolverAccessibilityService : AccessibilityService() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
-        val piStart = makePi(ACTION_START_SOLVER, 1)
-        val piStop  = makePi(ACTION_STOP_SOLVER,  2)
+        val piStart   = makePi(ACTION_START_SOLVER,   1)
+        val piStop    = makePi(ACTION_STOP_SOLVER,    2)
+        val piToggle  = makePi(ACTION_TOGGLE_OVERLAY, 3)
 
         val notif = Notification.Builder(this, CHANNEL)
             .setContentTitle("MultiCaptcha Solver ✓")
-            .setContentText("Start / Stop solver từ thanh thông báo")
+            .setContentText("Start/Stop solver • Toggle overlay (off = OCR sạch)")
             .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .addAction(Notification.Action.Builder(null, "▶ Start", piStart).build())
-            .addAction(Notification.Action.Builder(null, "■ Stop",  piStop).build())
+            .addAction(Notification.Action.Builder(null, "▶ Start",   piStart).build())
+            .addAction(Notification.Action.Builder(null, "■ Stop",    piStop).build())
+            .addAction(Notification.Action.Builder(null, "👁 Overlay", piToggle).build())
             .setOngoing(true)
             .build()
 
         nm.notify(NOTIF_ID, notif)
-        DebugLogger.i(TAG, "Control notification shown (Start/Stop)")
+        DebugLogger.i(TAG, "Control notification shown (Start/Stop/Overlay)")
     }
 }

@@ -121,16 +121,14 @@ class FuncaptchaSolver(
 
         OverlayManager.updateSlotStep(slot.index, "OCR đọc câu hỏi...")
         val ocrText = OcrHelper.extractText(questionBmp)
-        DebugLogger.d(TAG, "OCR question rect=${slot.questionTextRect}")
+        DebugLogger.i(TAG, "════ OCR raw: \"${ocrText ?: "<null>"}\" (rect=${slot.questionTextRect})")
 
         // Parse "(N of M)" để biết total options luôn nếu có
         val ocrTotal = ocrText?.let {
             Regex("""\(\s*\d+\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
                 ?.groupValues?.get(1)?.toIntOrNull()
         }
-        if (ocrTotal != null) {
-            DebugLogger.i(TAG, "OCR counter: total=$ocrTotal options")
-        }
+        DebugLogger.i(TAG, "════ OCR counter total: ${ocrTotal ?: "<not found>"}")
 
         // Loại bỏ phần "(N of M)" khỏi question text gửi API
         val cleanedOcr = ocrText
@@ -141,21 +139,25 @@ class FuncaptchaSolver(
         val questionText = cleanedOcr?.takeIf { it.length >= 10 }   // OCR có thể đọc rác → cần >=10 ký tự
             ?: SolverConfig.captchaOther.ifBlank { null }
 
-        if (questionText.isNullOrBlank()) {
-            DebugLogger.w(TAG, "No question text (OCR fail + no manual fallback) — API 'other' will be empty")
-        } else {
-            DebugLogger.i(TAG, "Question: \"$questionText\"")
-        }
+        DebugLogger.i(TAG, "════ Question text gửi API: \"${questionText ?: "<empty>"}\"")
 
         // ── Đếm dots (carousel indicator phía trên Submit) ──────
         val dotsBmp   = ScreenCapture.cropRegion(slotBmpFirst, slot.dotsCountRect)
         val dotsCount = ScreenCapture.countDots(dotsBmp)
-        DebugLogger.i(TAG, "Dot count: $dotsCount (rect=${slot.dotsCountRect})")
+        DebugLogger.i(TAG, "════ Dot count: $dotsCount (rect=${slot.dotsCountRect})")
 
-        // Tổng options: ưu tiên OCR "(N of M)" → fallback đếm dots → fallback accessibility
-        val accessibilityTotal = ocrTotal
-            ?: dotsCount.takeIf { it in 2..30 }
-            ?: SolverAccessibilityService.getTotalOptions(slot.packageName)
+        // Cập nhật info overlay (luôn hiện, ngoài vùng làm việc)
+        OverlayManager.updateSlotInfo(slot.index, questionText, dotsCount)
+
+        // Tổng options: ưu tiên OCR "(N of M)" → fallback đếm dots
+        val totalKnown = ocrTotal ?: dotsCount.takeIf { it in 2..30 }
+        if (totalKnown == null) {
+            DebugLogger.e(TAG, "Không xác định được tổng options (OCR + dot count đều fail). Abort.")
+            OverlayManager.updateSlotStep(slot.index, "Lỗi: không biết tổng options")
+            currentState = SlotState.PUZZLE_ACTIVE
+            return false
+        }
+        DebugLogger.i(TAG, "════ Total options dùng: $totalKnown (source=${if (ocrTotal != null) "OCR" else "dots"})")
 
         // ── Crop reference image từ screenshot hiện tại ──────────
         val refBmp = ScreenCapture.cropRegion(slotBmpFirst, slot.matchThisImageRect)
@@ -169,11 +171,9 @@ class FuncaptchaSolver(
         optionBitmaps.add(firstOption)
         DebugLogger.d(TAG, "Captured option 1 (from existing screenshot)")
 
-        // Options 2..N: scroll → chụp → dừng khi biết đủ options
-        // Nếu accessibility đọc được total → dùng exact count, không cần detect duplicate
-        val captureLimit = accessibilityTotal ?: MAX_OPTIONS
-        for (i in 2..captureLimit) {
-            OverlayManager.updateSlotStep(slot.index, "Chụp option $i...")
+        // Options 2..N: scroll → chụp đúng totalKnown lần (không dùng dedup nữa)
+        for (i in 2..totalKnown) {
+            OverlayManager.updateSlotStep(slot.index, "Chụp option $i/$totalKnown...")
             TouchInjector.tapInSlot(slot, slot.rightArrowRelX, slot.rightArrowRelY, "→ capture $i")
             carouselPos = i
             delay(CAPTURE_DELAY_MS)
@@ -186,17 +186,8 @@ class FuncaptchaSolver(
             }
             val slotBmpI  = ScreenCapture.cropSlot(shot, slot)
             val newOption = ScreenCapture.cropRegion(slotBmpI, slot.currentOptionRect)
-
-            // Detect wrap-around: ảnh mới giống ảnh đầu tiên → đã đủ
-            if (i > MIN_OPTIONS && ScreenCapture.areSimilar(newOption, firstOption)) {
-                DebugLogger.i(TAG, "Carousel wrapped at i=$i → total=${optionBitmaps.size} options")
-                // KHÔNG thêm ảnh trùng, carouselPos hiệu quả đã về 1
-                carouselPos = 1
-                break
-            }
-
             optionBitmaps.add(newOption)
-            DebugLogger.d(TAG, "Captured option $i (total so far: ${optionBitmaps.size})")
+            DebugLogger.d(TAG, "Captured option $i/$totalKnown")
         }
 
         val totalOptions = optionBitmaps.size
@@ -288,7 +279,6 @@ class FuncaptchaSolver(
         private const val ARROW_DELAY_MS   = 400L
         private const val SUBMIT_DELAY_MS  = 600L
         private const val CAPTURE_DELAY_MS = 650L   // chờ animation scroll trước khi chụp
-        private const val MIN_OPTIONS      = 3       // tối thiểu mới check duplicate
-        private const val MAX_OPTIONS      = 22      // giới hạn trên (FunCaptcha max ~20)
+        private const val MAX_OPTIONS      = 22      // giới hạn cho carousel reset (FunCaptcha max ~20)
     }
 }
