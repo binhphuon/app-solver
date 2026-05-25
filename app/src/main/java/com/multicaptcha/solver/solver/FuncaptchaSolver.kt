@@ -103,18 +103,19 @@ class FuncaptchaSolver(
         val ocrText = OcrHelper.extractText(questionBmp)
         DebugLogger.i(TAG, "════ OCR raw: \"${ocrText ?: "<null>"}\" (rect=${slot.questionTextRect})")
 
-        // Parse "(N of M)" — đây là CHALLENGE counter (đang giải challenge thứ N trong tổng M challenges
-        // của captcha session), KHÔNG phải số options. Log info, không dùng tính total options.
+        // Parse "(N of M)" — challenge counter. OCR (ML Kit / EasyOCR) hay miss số 1 nhỏ
+        // → regex lenient `\d*` cho N (cho phép vắng): "( of 5)" cũng match.
         val challengeMatch = ocrText?.let {
-            Regex("""\(\s*(\d+)\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
+            Regex("""\(\s*(\d*)\s*of\s*(\d+)\s*\)""", RegexOption.IGNORE_CASE).find(it)
         }
         if (challengeMatch != null) {
-            DebugLogger.i(TAG, "════ Challenge ${challengeMatch.groupValues[1]}/${challengeMatch.groupValues[2]} (info only)")
+            val n = challengeMatch.groupValues[1].ifEmpty { "?" }
+            DebugLogger.i(TAG, "════ Challenge $n/${challengeMatch.groupValues[2]} (info only)")
         }
 
-        // Loại bỏ phần "(N of M)" khỏi question text gửi API (giữ instruction sạch)
+        // Loại bỏ phần "(N of M)" khỏi question text gửi API (regex lenient \d*)
         val cleanedOcr = ocrText
-            ?.replace(Regex("""\(\s*\d+\s*of\s*\d+\s*\)""", RegexOption.IGNORE_CASE), "")
+            ?.replace(Regex("""\(\s*\d*\s*of\s*\d+\s*\)""", RegexOption.IGNORE_CASE), "")
             ?.replace(Regex("\\s+"), " ")
             ?.trim()
 

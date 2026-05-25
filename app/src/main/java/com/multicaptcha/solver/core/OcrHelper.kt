@@ -11,12 +11,28 @@ import kotlin.coroutines.resume
  * OCR wrapper sử dụng Google ML Kit Text Recognition (on-device, free).
  * Dùng để trích text câu hỏi từ vùng ảnh captcha — accessibility không đọc được
  * vì FunCaptcha render content trong SurfaceView.
+ *
+ * Có upscale 3x trước khi feed vào ML Kit để tăng accuracy:
+ *   Test với EasyOCR (Python) trên cùng ảnh:
+ *     - Không upscale: "to" → "t0", "(1 of 5)" → "( of 5)" (miss số 1)
+ *     - Upscale 3x  : đọc đúng tất cả
+ *   ML Kit cũng improve tương tự khi text nhỏ.
  */
 object OcrHelper {
     private const val TAG = "OcrHelper"
+    private const val UPSCALE_FACTOR = 3
 
     private val recognizer by lazy {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    }
+
+    /**
+     * Upscale bitmap với bilinear filter (Android không có LANCZOS built-in).
+     * Bilinear khá ổn cho việc tăng độ chính xác OCR.
+     */
+    private fun upscale(src: Bitmap, factor: Int): Bitmap {
+        if (factor <= 1) return src
+        return Bitmap.createScaledBitmap(src, src.width * factor, src.height * factor, true)
     }
 
     /**
@@ -25,19 +41,26 @@ object OcrHelper {
      */
     suspend fun extractText(bitmap: Bitmap): String? = suspendCancellableCoroutine { cont ->
         try {
-            val image = InputImage.fromBitmap(bitmap, 0)
+            // Upscale trước khi feed ML Kit để tăng accuracy với text nhỏ
+            val scaledBitmap = upscale(bitmap, UPSCALE_FACTOR)
+            DebugLogger.d(TAG, "OCR input: ${bitmap.width}x${bitmap.height} " +
+                "→ upscaled ${scaledBitmap.width}x${scaledBitmap.height} (${UPSCALE_FACTOR}x)")
+
+            val image = InputImage.fromBitmap(scaledBitmap, 0)
             recognizer.process(image)
                 .addOnSuccessListener { result ->
-                    // Gộp các block/line thành 1 chuỗi liền mạch, ngăn cách bằng space
-                    val raw = result.text
-                    val normalized = raw
+                    // ML Kit's result.text đã sorted theo reading order
+                    val normalized = result.text
                         .replace(Regex("\\s+"), " ")
                         .trim()
-                    DebugLogger.i(TAG, "OCR ${bitmap.width}x${bitmap.height} → \"$normalized\"")
+                    DebugLogger.i(TAG, "OCR → \"$normalized\"")
+                    // Recycle scaled bitmap nếu khác bitmap gốc
+                    if (scaledBitmap !== bitmap) scaledBitmap.recycle()
                     cont.resume(normalized.ifEmpty { null })
                 }
                 .addOnFailureListener { e ->
                     DebugLogger.e(TAG, "OCR process failed", e)
+                    if (scaledBitmap !== bitmap) scaledBitmap.recycle()
                     cont.resume(null)
                 }
         } catch (e: Exception) {

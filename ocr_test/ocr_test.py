@@ -40,6 +40,12 @@ import sys
 import argparse
 from pathlib import Path
 
+# Force UTF-8 stdout trên Windows (console mặc định cp1252 không nhận emoji/box chars)
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 
 # ── Logic copy 1:1 từ FuncaptchaSolver.kt + OcrHelper.kt + ScreenCapture.kt ──
 
@@ -50,8 +56,8 @@ def normalize(text: str) -> str:
 
 def count_dots(pil_img,
                brightness_threshold: int = 200,
-               closing_iter: int = 1,
-               min_blob_pixels: int = 4):
+               closing_iter: int = 0,
+               min_blob_pixels: int = 10):
     """
     Đếm dots bằng Connected Component Labeling 2D (8-connectivity).
 
@@ -127,20 +133,37 @@ def count_dots(pil_img,
 
 def parse_challenge_counter(text: str):
     """
-    Tìm "(N of M)" → return (N, M) tuple hoặc None.
-    FuncaptchaSolver.kt:128-130
+    Tìm pattern "(N of M)" hoặc các variants do OCR đọc thiếu ký tự:
+      "(1 of 5)"  — đầy đủ
+      "( of 5)"   — OCR miss số N
+      "1 of 5)"   — OCR miss "("
+      "of 5)"     — OCR miss cả "(" và N
+      "(1 of 5"   — OCR miss ")"
+    Return (N, M) tuple, hoặc (None, M) nếu N vắng, hoặc None nếu không tìm thấy.
     """
-    m = re.search(r"\(\s*(\d+)\s*of\s*(\d+)\s*\)", text, re.IGNORECASE)
+    m = re.search(r"\(?\s*(\d*)\s*of\s*(\d+)\s*\)?", text, re.IGNORECASE)
     if m:
-        return int(m.group(1)), int(m.group(2))
+        n_str = m.group(1)
+        n = int(n_str) if n_str else None
+        return n, int(m.group(2))
     return None
 
 
 def strip_counter(text: str) -> str:
     """
-    Xoá "(N of M)" khỏi text + normalize. FuncaptchaSolver.kt:134-137
+    Xoá pattern counter ở cuối text. Lenient — chấp nhận thiếu paren:
+      "...seat (1 of 5)"  → "...seat"
+      "...seat ( of 5)"   → "...seat"
+      "...seat of 5)"     → "...seat"
+      "...seat (1 of 5"   → "...seat"
+    Pattern phải ở CUỐI string (anchor $) để không xoá nhầm "of" trong câu.
     """
-    cleaned = re.sub(r"\(\s*\d+\s*of\s*\d+\s*\)", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\s*\(?\s*\d*\s*of\s*\d+\s*\)?\s*$",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
     return normalize(cleaned)
 
 
@@ -187,14 +210,59 @@ def apply_crop(pil_img, crop_pct):
 
 # ── Test runner ───────────────────────────────────────────────────────────
 
-def run_ocr(reader, pil_img, invert: bool):
-    """Chạy OCR, return (raw_normalized, blocks)."""
-    from PIL import ImageOps
+def run_ocr(engine_name: str, reader, pil_img, invert: bool, scale: int = 1):
+    """
+    Chạy OCR với engine được chọn. Return (raw_normalized, blocks_normalized_list).
+
+    blocks_normalized_list = [(bbox, text, conf), ...] — bbox là list of 4 corners.
+
+    engines:
+      'rapid'  — RapidOCR (ONNX, dùng model PaddleOCR — tốt nhất cho punctuation +
+                 text nhỏ. Default).
+      'easy'   — EasyOCR (fallback, hay nhầm 'to'→'t0' với text nhỏ; upscale 3x giúp).
+    """
+    from PIL import Image, ImageOps
     import numpy as np
-    img = ImageOps.invert(pil_img) if invert else pil_img
-    blocks = reader.readtext(np.array(img))
+
+    img = pil_img.convert("RGB")
+    if scale > 1:
+        img = img.resize((img.width * scale, img.height * scale), Image.LANCZOS)
+    if invert:
+        img = ImageOps.invert(img)
+
+    arr = np.array(img)
+
+    if engine_name == "rapid":
+        result, _ = reader(arr)
+        # RapidOCR trả [(bbox, text, conf)] — trả về theo reading order
+        blocks = [(b[0], b[1], b[2]) for b in result] if result else []
+    else:  # easyocr
+        blocks = reader.readtext(arr)
+
     raw = " ".join(b[1] for b in blocks)
     return normalize(raw), blocks
+
+
+def init_ocr_reader(engine_name: str):
+    """Khởi tạo reader cho engine được chọn. Lazy import để không import cả 2."""
+    if engine_name == "rapid":
+        try:
+            from rapidocr_onnxruntime import RapidOCR
+            return RapidOCR()
+        except ImportError:
+            print("RapidOCR chưa cài. Chạy: pip install rapidocr-onnxruntime")
+            sys.exit(1)
+    elif engine_name == "easy":
+        try:
+            import easyocr
+            print("Loading EasyOCR English model (lần đầu sẽ tải ~64MB)...")
+            return easyocr.Reader(["en"], gpu=False, verbose=False)
+        except ImportError:
+            print("EasyOCR chưa cài. Chạy: pip install easyocr")
+            sys.exit(1)
+    else:
+        print(f"Unknown engine: {engine_name}")
+        sys.exit(1)
 
 
 def save_crop(pil_img, src_path: Path, out_dir: Path, crop_label: str):
@@ -205,9 +273,10 @@ def save_crop(pil_img, src_path: Path, out_dir: Path, crop_label: str):
     return out_path
 
 
-def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
-               invert: bool, verbose: bool, output_dir: Path = None,
-               dot_params: dict = None):
+def test_image(reader, engine_name: str, path: Path, mode: str, crop_pct,
+               crop_label: str, invert: bool, verbose: bool,
+               output_dir: Path = None, dot_params: dict = None,
+               ocr_scale: int = 1):
     print()
     print(f"════ {path}")
 
@@ -236,12 +305,12 @@ def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
         count, comps = count_dots(
             img,
             brightness_threshold=dp.get("brightness", 200),
-            closing_iter=dp.get("closing", 1),
-            min_blob_pixels=dp.get("min_pixels", 4),
+            closing_iter=dp.get("closing", 0),
+            min_blob_pixels=dp.get("min_pixels", 10),
         )
         print(f"  Dot params    : bright={dp.get('brightness', 200)} "
-              f"closing={dp.get('closing', 1)} "
-              f"min_pixels={dp.get('min_pixels', 4)}")
+              f"closing={dp.get('closing', 0)} "
+              f"min_pixels={dp.get('min_pixels', 10)}")
         print(f"  Dot count     : {count}")
         if verbose and comps:
             print(f"  Components (sorted theo X):")
@@ -253,17 +322,19 @@ def test_image(reader, path: Path, mode: str, crop_pct, crop_label: str,
     else:
         # ── OCR mode (default) ──
         try:
-            raw, blocks = run_ocr(reader, img, invert)
+            raw, blocks = run_ocr(engine_name, reader, img, invert, scale=ocr_scale)
         except Exception as e:
             print(f"  ✗ OCR failed: {e}")
             return
 
+        print(f"  OCR engine    : {engine_name}{' (' + str(ocr_scale) + 'x upscale)' if ocr_scale > 1 else ''}")
         print(f"  OCR raw       : \"{raw}\"")
 
         counter = parse_challenge_counter(raw)
         if counter:
             n, m = counter
-            print(f"  Challenge cnt : {n} of {m}   (← info only, KHÔNG phải số options)")
+            n_str = str(n) if n is not None else "?"
+            print(f"  Challenge cnt : {n_str} of {m}   (← info only, KHÔNG phải số options)")
         else:
             print(f"  Challenge cnt : <không tìm thấy '(N of M)'>")
 
@@ -302,6 +373,17 @@ def main():
              "tên '<original>__<label>.png' để check crop có đúng không.",
     )
     p.add_argument(
+        "--engine", choices=["rapid", "easy"], default="rapid",
+        help="OCR engine. 'rapid' = RapidOCR (ONNX, models của PaddleOCR — "
+             "accurate hơn, default). 'easy' = EasyOCR (hay nhầm 'to'→'t0' "
+             "với text nhỏ).",
+    )
+    p.add_argument(
+        "--ocr-scale", type=int, default=1,
+        help="Upscale ảnh trước OCR (LANCZOS). Default 1 (RapidOCR đủ tốt). "
+             "Đặt 3 cho EasyOCR để fix lỗi đọc chữ nhỏ.",
+    )
+    p.add_argument(
         "--invert", action="store_true",
         help="Invert màu trước khi OCR (cho text trắng trên nền tối)",
     )
@@ -316,13 +398,15 @@ def main():
              "Tăng (220) nếu dots xám nhạt; giảm (180) nếu background hơi tối.",
     )
     p.add_argument(
-        "--dot-closing", type=int, default=1,
+        "--dot-closing", type=int, default=0,
         help="Số lần morphological close (dilate→erode) để fill gap nhỏ "
-             "trong ring outline bị đứt. 0 = disable. Default 1.",
+             "trong ring outline. Default 0 (disabled — dùng nếu ring outline bị đứt, "
+             "nhưng dots adjacent gần nhau có thể bị merge).",
     )
     p.add_argument(
-        "--dot-min-pixels", type=int, default=4,
-        help="Bỏ blob nhỏ hơn ngần này pixels (chống noise). Default 4.",
+        "--dot-min-pixels", type=int, default=10,
+        help="Bỏ blob nhỏ hơn ngần này pixels (chống noise edge anti-aliasing). "
+             "Default 10.",
     )
     args = p.parse_args()
 
@@ -350,23 +434,17 @@ def main():
         "min_pixels":  args.dot_min_pixels,
     }
 
-    # Chỉ load EasyOCR khi cần (mode=ocr); mode=dots không cần
+    # Chỉ load OCR reader khi cần (mode=ocr); mode=dots không cần
     reader = None
     if mode == "ocr":
-        try:
-            import easyocr
-        except ImportError:
-            print("Chưa cài EasyOCR. Chạy:  pip install -r requirements.txt")
-            sys.exit(1)
-        print("Loading EasyOCR English model (lần đầu sẽ tải ~64MB)...")
-        reader = easyocr.Reader(["en"], gpu=False, verbose=False)
+        reader = init_ocr_reader(args.engine)
     else:
         print(f"Mode: {mode} — skip OCR model load")
 
     target = Path(args.path)
     if target.is_file():
-        test_image(reader, target, mode, crop_pct, crop_label,
-                   args.invert, args.verbose, output_dir, dot_params)
+        test_image(reader, args.engine, target, mode, crop_pct, crop_label,
+                   args.invert, args.verbose, output_dir, dot_params, args.ocr_scale)
     elif target.is_dir():
         exts = {".png", ".jpg", ".jpeg", ".bmp", ".webp"}
         images = sorted(p for p in target.iterdir() if p.suffix.lower() in exts)
@@ -375,8 +453,8 @@ def main():
             return
         print(f"Tìm thấy {len(images)} ảnh trong {target}")
         for img in images:
-            test_image(reader, img, mode, crop_pct, crop_label,
-                       args.invert, args.verbose, output_dir, dot_params)
+            test_image(reader, args.engine, img, mode, crop_pct, crop_label,
+                       args.invert, args.verbose, output_dir, dot_params, args.ocr_scale)
     else:
         print(f"Không tồn tại: {target}")
         sys.exit(1)

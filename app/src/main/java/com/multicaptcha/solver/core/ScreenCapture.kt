@@ -182,53 +182,81 @@ object ScreenCapture {
     // ── Dot counting (carousel page indicator) ──────────────────
 
     /**
-     * Đếm số dots (chấm tròn) trong vùng indicator phía trên Submit.
-     * Mỗi dot = 1 option của carousel.
+     * Đếm số dots (chấm tròn) bằng Connected Component Labeling 2D (8-connectivity).
      *
-     * Thuật toán:
-     *  1. Project tất cả pixel "tối" (brightness < threshold) lên trục X — tạo histogram
-     *  2. Mỗi column có >= h/3 pixel tối được coi là "dot column"
-     *  3. Đếm các nhóm liên tiếp của dot columns → mỗi nhóm = 1 dot
+     * Tại sao không dùng column-projection: filled dot và outline ring khi project
+     * lên X có pattern khác nhau (ring có khoảng giữa rỗng), khó tune threshold cho
+     * cả 2 case, đặc biệt khi dots adjacent gần nhau (khoảng giữa 2 dots ≈ khoảng
+     * giữa ring → không phân biệt được).
      *
-     * Robust với cả dot filled và outline-only (vì project lên X bắt được cả 2 cạnh outline).
+     * Algorithm:
+     *   1. Threshold pixel < brightnessThreshold → binary mask "dark"
+     *   2. BFS từng pixel chưa label, mở rộng 8-connectivity → mỗi blob = 1 component
+     *   3. Filter component có pixels < minBlobPixels (noise)
+     *   4. Đếm components còn lại
+     *
+     * Tested với ảnh 204x19 (1 filled + 15 outline rings) → đúng 16 dots.
      */
-    fun countDots(bmp: Bitmap, brightnessThreshold: Int = 200): Int {
+    fun countDots(bmp: Bitmap, brightnessThreshold: Int = 200, minBlobPixels: Int = 10): Int {
         val w = bmp.width
         val h = bmp.height
         if (w < 4 || h < 2) return 0
 
-        val darkPerCol = IntArray(w)
+        // 1. Binary mask
+        val dark = BooleanArray(w * h)
         for (y in 0 until h) {
             for (x in 0 until w) {
                 val p = bmp.getPixel(x, y)
                 val br = ((p shr 16 and 0xFF) + (p shr 8 and 0xFF) + (p and 0xFF)) / 3
-                if (br < brightnessThreshold) darkPerCol[x]++
+                dark[y * w + x] = br < brightnessThreshold
             }
         }
 
-        // Column "đáng kể" nếu có >= h/3 pixel tối
-        val colThreshold = (h / 3).coerceAtLeast(1)
-        var dots     = 0
-        var inGroup  = false
-        var groupLen = 0
-        val minDotWidth = 1   // ≥1 col để khử noise đơn lẻ (chỉnh tuỳ DPI)
+        // 2. BFS connected components 8-connectivity
+        val visited = BooleanArray(w * h)
+        val stack = ArrayDeque<Int>()  // dùng index = y*w + x để tiết kiệm allocation
+        var dotCount = 0
 
-        for (x in 0 until w) {
-            val active = darkPerCol[x] >= colThreshold
-            if (active) {
-                if (!inGroup) { inGroup = true; groupLen = 1 }
-                else groupLen++
-            } else {
-                if (inGroup) {
-                    if (groupLen >= minDotWidth) dots++
-                    inGroup = false; groupLen = 0
+        for (startY in 0 until h) {
+            for (startX in 0 until w) {
+                val startIdx = startY * w + startX
+                if (!dark[startIdx] || visited[startIdx]) continue
+
+                // BFS từ pixel này
+                var blobSize = 0
+                stack.clear()
+                stack.addLast(startIdx)
+                while (stack.isNotEmpty()) {
+                    val idx = stack.removeLast()
+                    if (visited[idx]) continue
+                    if (!dark[idx]) continue
+                    visited[idx] = true
+                    blobSize++
+
+                    val y = idx / w
+                    val x = idx - y * w
+                    // 8 neighbours
+                    for (dy in -1..1) {
+                        for (dx in -1..1) {
+                            if (dy == 0 && dx == 0) continue
+                            val ny = y + dy
+                            val nx = x + dx
+                            if (ny in 0 until h && nx in 0 until w) {
+                                val nIdx = ny * w + nx
+                                if (!visited[nIdx] && dark[nIdx]) {
+                                    stack.addLast(nIdx)
+                                }
+                            }
+                        }
+                    }
                 }
+
+                if (blobSize >= minBlobPixels) dotCount++
             }
         }
-        if (inGroup && groupLen >= minDotWidth) dots++
 
-        DebugLogger.d(TAG, "countDots ${w}x${h}: $dots dots (colThr=$colThreshold)")
-        return dots
+        DebugLogger.d(TAG, "countDots ${w}x${h}: $dotCount dots (minBlobPixels=$minBlobPixels)")
+        return dotCount
     }
 
     // ── Debug image save ────────────────────────────────────────

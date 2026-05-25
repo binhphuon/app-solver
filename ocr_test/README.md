@@ -3,8 +3,12 @@
 Tách logic Android (`OcrHelper.kt` + `FuncaptchaSolver.kt` + `ScreenCapture.countDots`) ra Python để test crop ảnh captcha trực tiếp, không cần build APK lại mỗi lần thử.
 
 **Hỗ trợ 2 mode:**
-- **OCR** — đọc text câu hỏi (dùng EasyOCR), parse `(N of M)`, clean text gửi API
-- **Dots** — đếm chấm tròn page indicator (port từ `ScreenCapture.countDots()`)
+- **OCR** — đọc text câu hỏi, parse `(N of M)`, clean text gửi API
+- **Dots** — đếm chấm tròn page indicator (Connected Components 2D)
+
+**2 OCR engines:**
+- `rapid` (default) — RapidOCR (ONNX, dùng models PaddleOCR). Tốt nhất cho printed text nhỏ.
+- `easy` — EasyOCR fallback (cài thêm bằng `pip install easyocr`).
 
 ## Cài đặt
 
@@ -146,17 +150,54 @@ python ocr_test.py slot.png --crop question -v
 | `len(cleaned) >= 10` check  | `FuncaptchaSolver.kt` line 141 (`takeIf { it.length >= 10 }`) |
 | `count_dots()`              | `ScreenCapture.kt` `countDots()`                  |
 
-## Lưu ý về độ chính xác
+## So sánh accuracy giữa engines
 
-Android app dùng **Google ML Kit text-recognition** (on-device, proprietary). Script này dùng **EasyOCR** vì pure-Python, dễ cài. Kết quả có thể khác chút:
+Test trên `text.png` (343×48) — câu hỏi captcha thực tế:
 
-| | ML Kit | EasyOCR |
-|---|---|---|
-| Tốc độ | Rất nhanh (native) | Vừa (CPU) |
-| Accuracy in printed English | ~ngang nhau | ~ngang nhau |
-| Setup | Tích hợp APK | `pip install` |
+| Engine        | OCR raw                                                                | API text gửi đi |
+|---------------|------------------------------------------------------------------------|----------------|
+| **rapid 1x**  | "Using the arrows**,** move the person **to** the indicated seat of 5)"| ✓ "Using the arrows, move the person to the indicated seat" |
+| easy 1x       | "Using the arrows**;** move the person **t0** the indicated seat ( of 5)" | ✗ punctuation + chữ sai + miss số 1 |
+| easy 3x       | "the arrows; move the person to the indicated seat (1 of 5) Using"     | ✗ block order shuffle → "Using" về cuối |
+| paddleocr     | crash trên Windows (compat issue PaddlePaddle)                         | — |
 
-Nếu EasyOCR đọc được → ML Kit gần như chắc chắn cũng đọc được. Nếu EasyOCR không đọc được → có thể crop sai vùng, thử `--invert` hoặc xem `-v` blocks để debug.
+**Kết luận**: RapidOCR (default) cho kết quả sạch nhất. Dùng models của PaddleOCR
+nhưng compile qua ONNX nên không cần PaddlePaddle backend.
+
+## Tăng accuracy thêm nếu cần
+
+```bash
+# Upscale ảnh trước OCR (LANCZOS) — chỉ giúp cho EasyOCR text nhỏ
+python ocr_test.py text.png --engine easy --ocr-scale 3
+
+# Invert màu — cho text trắng trên nền tối
+python ocr_test.py text.png --invert
+
+# Verbose: xem từng block + confidence
+python ocr_test.py text.png -v
+```
+
+## Lưu ý về regex strip counter
+
+Script tự strip pattern `(N of M)` ở cuối text trước khi gửi API, lenient với
+các variants OCR đọc thiếu ký tự:
+
+| OCR output                  | Sau strip                |
+|-----------------------------|--------------------------|
+| `...seat (1 of 5)`          | `...seat`                |
+| `...seat ( of 5)` (miss N)  | `...seat`                |
+| `...seat of 5)` (miss `(`)  | `...seat`                |
+| `...seat (1 of 5` (miss `)`)| `...seat`                |
+
+Regex: `\s*\(?\s*\d*\s*of\s*\d+\s*\)?\s*$` (anchor `$` cuối string).
+
+## Engine cho Android
+
+Android `OcrHelper.kt` vẫn dùng **Google ML Kit** (built-in, free, on-device).
+Đã thêm 3x upscale trước khi gọi ML Kit để tăng accuracy nếu text nhỏ.
+
+Switch Android sang RapidOCR sẽ cần ONNX Runtime Mobile + ~50MB model → tăng APK
+size đáng kể. ML Kit cho FunCaptcha thường đủ tốt.
 
 ## Workflow đề xuất
 
